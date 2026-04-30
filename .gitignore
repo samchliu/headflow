@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.turbo/
+.DS_Store
+*.log
+coverage/
+.changeset/*.md
+!.changeset/config.json
+.cache/
+
+# Cursor IDE
+.cursor/
