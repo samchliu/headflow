@@ -3,6 +3,13 @@ export interface Point {
   y: number
 }
 
+export interface Rect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
 export interface CanvasTransform {
   scale: number
   translateX: number
@@ -65,6 +72,12 @@ export type FlowEvents = {
   edgeCreateCancelled: { sourceHandleId: string; sourceNodeId: string }
   /** rAF-throttled — emitted during edge drag to show a draft edge */
   draftEdgeMove: { sourceHandleId: string; sourceNodeId: string; currentPt: Point }
+  /** Emitted whenever the selection set changes */
+  selectionChanged: { selected: Set<string> }
+  /** Emitted on every rAF tick during lasso drag (viewport-space rect) */
+  lassoUpdate: { rect: Rect }
+  /** Emitted when lasso drag ends (selection has already been updated) */
+  lassoEnd: undefined
 }
 
 export interface FlowEngine {
@@ -91,6 +104,23 @@ export interface FlowEngine {
   restore(state: SerializedGraph): void
   /** Remove all event listeners and DOM observers. Must be called on unmount. */
   destroy(): void
+
+  // ── Selection API ─────────────────────────────────────────────────────────
+  /** Select a single node by id (additive). */
+  selectNode(nodeId: string): void
+  /** Select multiple nodes (additive). */
+  selectNodes(nodeIds: string[]): void
+  /** Deselect a single node. */
+  deselectNode(nodeId: string): void
+  /** Clear all selected nodes. */
+  clearSelection(): void
+  /** Return the set of currently selected node ids. */
+  getSelection(): Set<string>
+  /**
+   * Move all selected nodes by a canvas-space delta.
+   * Emits `nodeMoved` for each moved node.
+   */
+  moveSelectionBy(delta: Point): void
 
   // ── Adapter-facing (used by framework adapters, not end-users) ─────────────
   /** @internal Register a DOM element as a node. */

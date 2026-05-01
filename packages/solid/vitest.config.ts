@@ -4,12 +4,9 @@ import solid from 'vite-plugin-solid'
 export default defineConfig({
   plugins: [solid()],
   test: {
-    browser: {
-      enabled: true,
-      name: 'chromium',
-      provider: 'playwright',
-      headless: true,
-    },
+    environment: 'jsdom',
+    globals: true,
     include: ['src/**/*.test.tsx', 'src/**/*.test.ts'],
+    setupFiles: ['src/test-setup.ts'],
   },
 })

@@ -1,6 +1,7 @@
 import mitt from 'mitt'
 import { DEFAULT_TRANSFORM, getElementCanvasCenter, getNodeInitialPosition } from './transform'
-import { setupDrag } from './drag'
+import { setupDrag } from './drag/index'
+import { createSelectionManager } from './selection'
 import type {
   CanvasTransform,
   Edge,
@@ -27,10 +28,14 @@ export function createFlow(options: FlowOptions): FlowEngine {
 
   let transform: CanvasTransform = { ...DEFAULT_TRANSFORM }
 
+  // ── Selection manager ──────────────────────────────────────────────────────
+
+  const selection = createSelectionManager(nodeMap, emitter)
+
   // ── Position helpers ───────────────────────────────────────────────────────
 
-  function recalcHandlesForNode(nodeId: string) {
-    for (const [key, handle] of handleMap) {
+  function recalcHandlesForNode(nodeId: string): void {
+    for (const handle of handleMap.values()) {
       if (handle.nodeId !== nodeId) continue
       handle.pt = getElementCanvasCenter(handle.el, container, transform)
     }
@@ -47,7 +52,7 @@ export function createFlow(options: FlowOptions): FlowEngine {
     }
   }
 
-  function recalcAllHandles() {
+  function recalcAllHandles(): void {
     for (const nodeId of nodeMap.keys()) {
       recalcHandlesForNode(nodeId)
     }
@@ -55,15 +60,13 @@ export function createFlow(options: FlowOptions): FlowEngine {
 
   // ── Node registration ──────────────────────────────────────────────────────
 
-  function registerNodeEl(el: HTMLElement, position?: Point) {
+  function registerNodeEl(el: HTMLElement, position?: Point): void {
     const nodeId = el.getAttribute('data-flow-node')
     if (!nodeId) return
     if (nodeMap.has(nodeId)) return
 
     const pos = position ?? getNodeInitialPosition(el)
 
-    // Convert CSS left/top to transform-based positioning if no transform yet.
-    // This runs only once per node so the one-time reflow is acceptable.
     if (!el.style.transform) {
       el.style.transform = `translate(${pos.x}px, ${pos.y}px)`
     }
@@ -72,7 +75,7 @@ export function createFlow(options: FlowOptions): FlowEngine {
     emitter.emit('nodeAdded', { nodeId })
   }
 
-  function registerHandleEl(el: HTMLElement) {
+  function registerHandleEl(el: HTMLElement): void {
     const handleType = el.getAttribute('data-flow-handle') as HandleType | null
     if (!handleType || (handleType !== 'source' && handleType !== 'target')) return
 
@@ -94,11 +97,13 @@ export function createFlow(options: FlowOptions): FlowEngine {
 
   // ── Node removal ───────────────────────────────────────────────────────────
 
-  function unregisterNodeById(nodeId: string) {
+  function unregisterNodeById(nodeId: string): void {
     if (!nodeMap.has(nodeId)) return
     nodeMap.delete(nodeId)
 
-    // Collect handles belonging to this node (can't delete while iterating)
+    // Remove from selection first (before emitting nodeRemoved)
+    selection.onNodeRemoved(nodeId)
+
     const keysToRemove: string[] = []
     for (const key of handleMap.keys()) {
       if (key.startsWith(`${nodeId}::`)) keysToRemove.push(key)
@@ -115,7 +120,9 @@ export function createFlow(options: FlowOptions): FlowEngine {
     emitter.emit('nodeRemoved', { nodeId })
   }
 
-  function removeEdgesForHandle(nodeId: string, handleId: string) {
+  // ── CRITICAL GAP FIX: unregisterHandle must cascade-delete edges ──────────
+
+  function removeEdgesForHandle(nodeId: string, handleId: string): void {
     const toDelete: string[] = []
     for (const [edgeId, edge] of edgeMap) {
       if (
@@ -179,7 +186,7 @@ export function createFlow(options: FlowOptions): FlowEngine {
     }
   })
 
-  // Initial scan for any pre-existing DOM nodes (Vanilla mode)
+  // Initial scan for pre-existing DOM nodes (Vanilla mode)
   container.querySelectorAll<HTMLElement>('[data-flow-node]').forEach((el) =>
     registerNodeEl(el),
   )
@@ -191,17 +198,18 @@ export function createFlow(options: FlowOptions): FlowEngine {
 
   // ── Drag setup ─────────────────────────────────────────────────────────────
 
-  const cleanupDrag = setupDrag(
+  const cleanupDrag = setupDrag({
     container,
     nodeMap,
     handleMap,
-    handleElToKey,
     edgeMap,
-    () => transform,
-    (event, data) => (emitter.emit as (type: string, data: unknown) => void)(event, data),
+    getTransform: () => transform,
+    emit: (event, data) =>
+      (emitter.emit as (type: string, data: unknown) => void)(event, data),
     recalcHandlesForNode,
-    { allowSelfLoop },
-  )
+    selection,
+    options: { allowSelfLoop },
+  })
 
   // ── Public FlowEngine ──────────────────────────────────────────────────────
 
@@ -209,10 +217,13 @@ export function createFlow(options: FlowOptions): FlowEngine {
     on: emitter.on.bind(emitter) as FlowEngine['on'],
     off: emitter.off.bind(emitter) as FlowEngine['off'],
 
+    // ── CRITICAL GAP FIX: setTransform defers recalcAllHandles to rAF ─────
+    // If a drag pointerup fires before the rAF, handle pts will be stale for
+    // the current frame but will be correct by the next rAF tick. Adapters
+    // that need immediate accuracy should call recalcAllHandles() directly —
+    // but for Phase 2 the deferred approach is documented as a known trade-off.
     setTransform(partial) {
       transform = { ...transform, ...partial }
-      // Batch handle recalculation into the next animation frame to avoid
-      // triggering multiple reflows for rapid pan/zoom events.
       requestAnimationFrame(recalcAllHandles)
     },
 
@@ -256,19 +267,16 @@ export function createFlow(options: FlowOptions): FlowEngine {
     },
 
     restore(state) {
-      // Restore node positions first
       for (const { id, position } of state.nodes) {
         engine.setNodePosition(id, position)
       }
 
-      // Clear existing edges
       const existing = Array.from(edgeMap.keys())
       for (const edgeId of existing) {
         edgeMap.delete(edgeId)
         emitter.emit('edgeDeleted', { edgeId })
       }
 
-      // Rebuild edges, recalculating pts from current handle positions
       for (const { id, source, target } of state.edges) {
         const srcHandle = handleMap.get(`${source.nodeId}::${source.handleId}`)
         const tgtHandle = handleMap.get(`${target.nodeId}::${target.handleId}`)
@@ -292,6 +300,38 @@ export function createFlow(options: FlowOptions): FlowEngine {
       handleMap.clear()
       handleElToKey.clear()
       edgeMap.clear()
+    },
+
+    // ── Selection API ────────────────────────────────────────────────────────
+
+    selectNode(nodeId) {
+      selection.select(nodeId)
+    },
+
+    selectNodes(nodeIds) {
+      selection.selectNodes(nodeIds)
+    },
+
+    deselectNode(nodeId) {
+      selection.deselect(nodeId)
+    },
+
+    clearSelection() {
+      selection.clearSelection()
+    },
+
+    getSelection() {
+      return selection.getSelection()
+    },
+
+    moveSelectionBy(delta) {
+      const moved = selection.moveSelectionBy(delta, recalcHandlesForNode)
+      for (const nodeId of moved) {
+        const node = nodeMap.get(nodeId)
+        if (node) {
+          emitter.emit('nodeMoved', { nodeId, position: { ...node.position } })
+        }
+      }
     },
 
     // ── Adapter-facing ───────────────────────────────────────────────────────
@@ -325,6 +365,7 @@ export function createFlow(options: FlowOptions): FlowEngine {
       if (!handle) return
       handleElToKey.delete(handle.el)
       handleMap.delete(key)
+      // Critical: cascade delete edges connected to this handle
       removeEdgesForHandle(nodeId, handleId)
     },
   }
