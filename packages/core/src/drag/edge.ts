@@ -32,9 +32,15 @@ export function processEdgeMove(
     x: e.clientX - cr.left,
     y: e.clientY - cr.top,
   }
+
+  const srcKey = `${state.sourceNodeId}::${state.sourceHandleId}`
+  const srcHandle = ctx.handleMap.get(srcKey)
+  const sourcePt: Point = srcHandle?.pt ?? { x: 0, y: 0 }
+
   ctx.emit('draftEdgeMove', {
     sourceHandleId: state.sourceHandleId,
     sourceNodeId: state.sourceNodeId,
+    sourcePt,
     currentPt: toCanvasSpace(viewportPt, t),
   })
 }

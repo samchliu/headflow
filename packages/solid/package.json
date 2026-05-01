@@ -37,6 +37,7 @@
   },
   "devDependencies": {
     "@solidjs/testing-library": "^0.8.10",
+    "@testing-library/jest-dom": "^6.9.1",
     "jsdom": "^24.1.0",
     "tsup": "^8.1.0",
     "typescript": "^5.4.5",

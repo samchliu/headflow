@@ -71,7 +71,14 @@ export type FlowEvents = {
   edgeDeleted: { edgeId: string }
   edgeCreateCancelled: { sourceHandleId: string; sourceNodeId: string }
   /** rAF-throttled — emitted during edge drag to show a draft edge */
-  draftEdgeMove: { sourceHandleId: string; sourceNodeId: string; currentPt: Point }
+  draftEdgeMove: {
+    sourceHandleId: string
+    sourceNodeId: string
+    /** Canvas-space position of the source handle */
+    sourcePt: Point
+    /** Canvas-space position of the pointer */
+    currentPt: Point
+  }
   /** Emitted whenever the selection set changes */
   selectionChanged: { selected: Set<string> }
   /** Emitted on every rAF tick during lasso drag (viewport-space rect) */

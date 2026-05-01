@@ -1,4 +1,5 @@
 export { useFlowCanvas } from './useFlowCanvas'
+export { useFlowContext } from './context'
 export { useNode } from './useNode'
 export { useHandle } from './useHandle'
 export { useEdges } from './useEdges'

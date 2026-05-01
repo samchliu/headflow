@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   useFlowCanvas,
   useNode,
@@ -7,7 +7,8 @@ import {
   useSelection,
   useLasso,
 } from '@headflow/react'
-import type { Edge, FlowEngine } from '@headflow/react'
+import type { Edge } from '@headflow/react'
+import { useFlowContext } from '@headflow/react'
 import { bezierPath } from './bezier'
 
 // ── Node component ────────────────────────────────────────────────────────────
@@ -96,40 +97,27 @@ interface DraftEdgeState {
   currentY: number
 }
 
-interface EdgeLayerProps {
-  engine: FlowEngine | null
-}
-
-function EdgeLayer({ engine }: EdgeLayerProps) {
+function EdgeLayer() {
+  const { getEngine } = useFlowContext()
   const edges = useEdges()
   const [draft, setDraft] = useState<DraftEdgeState | null>(null)
 
-  // Subscribe to draft edge events
-  useState(() => {
-    if (!engine) return
+  useEffect(() => {
+    const engine = getEngine()
+
     const onMove = ({
-      sourceHandleId,
-      sourceNodeId,
+      sourcePt,
       currentPt,
     }: {
       sourceHandleId: string
       sourceNodeId: string
+      sourcePt: { x: number; y: number }
       currentPt: { x: number; y: number }
     }) => {
-      const srcKey = `${sourceNodeId}::${sourceHandleId}`
-      // Get source pt from current edges snapshot (best effort)
-      const allEdges = engine.getEdges()
-      const srcEdge = allEdges.find(
-        (e) => e.source.nodeId === sourceNodeId && e.source.handleId === sourceHandleId,
-      )
-      setDraft({
-        sourceX: srcEdge?.source.pt.x ?? currentPt.x,
-        sourceY: srcEdge?.source.pt.y ?? currentPt.y,
-        currentX: currentPt.x,
-        currentY: currentPt.y,
-      })
+      setDraft({ sourceX: sourcePt.x, sourceY: sourcePt.y, currentX: currentPt.x, currentY: currentPt.y })
     }
     const onCancel = () => setDraft(null)
+
     engine.on('draftEdgeMove', onMove)
     engine.on('edgeCreateCancelled', onCancel)
     engine.on('edgeCreated', onCancel)
@@ -138,7 +126,9 @@ function EdgeLayer({ engine }: EdgeLayerProps) {
       engine.off('edgeCreateCancelled', onCancel)
       engine.off('edgeCreated', onCancel)
     }
-  })
+  // getEngine is stable
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <svg
@@ -244,6 +234,7 @@ function Canvas({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) 
           defaultPosition={{ x: n.x, y: n.y }}
         />
       ))}
+      <EdgeLayer />
       <LassoOverlay />
     </div>
   )
@@ -281,7 +272,7 @@ export function App() {
         </header>
 
         {/* Canvas */}
-        <main style={{ flex: 1, overflow: 'hidden' }}>
+        <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           <Canvas canvasRef={canvasRef} />
         </main>
       </div>
