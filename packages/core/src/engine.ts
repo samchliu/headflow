@@ -70,7 +70,16 @@ export function createFlow(options: FlowOptions): FlowEngine {
   function registerNodeEl(el: HTMLElement, position?: Point): void {
     const nodeId = el.getAttribute('data-flow-node')
     if (!nodeId) return
-    if (nodeMap.has(nodeId)) return
+    const existing = nodeMap.get(nodeId)
+    if (existing) {
+      if (position) {
+        existing.el = el
+        existing.position = { ...position }
+        existing.el.style.transform = `translate(${position.x}px, ${position.y}px)`
+        recalcHandlesForNode(nodeId)
+      }
+      return
+    }
 
     const pos = position ?? getNodeInitialPosition(el)
 

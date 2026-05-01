@@ -29,21 +29,27 @@ export function useEdges(): Edge[] {
   useEffect(() => {
     const engine = getEngine()
 
-    function invalidate() {
+    function invalidate(reason: 'edgeCreated' | 'edgeDeleted' | 'nodeMoved') {
       snapshotRef.current = engine.getEdges()
       versionRef.current++
       for (const l of listenersRef.current) l()
     }
 
-    engine.on('edgeCreated', invalidate)
-    engine.on('edgeDeleted', invalidate)
+    const onEdgeCreated = () => invalidate('edgeCreated')
+    const onEdgeDeleted = () => invalidate('edgeDeleted')
+    const onNodeMoved = () => invalidate('nodeMoved')
+
+    engine.on('edgeCreated', onEdgeCreated)
+    engine.on('edgeDeleted', onEdgeDeleted)
+    engine.on('nodeMoved', onNodeMoved)
 
     // Sync on mount
-    invalidate()
+    onEdgeCreated()
 
     return () => {
-      engine.off('edgeCreated', invalidate)
-      engine.off('edgeDeleted', invalidate)
+      engine.off('edgeCreated', onEdgeCreated)
+      engine.off('edgeDeleted', onEdgeDeleted)
+      engine.off('nodeMoved', onNodeMoved)
     }
   // getEngine is stable
   // eslint-disable-next-line react-hooks/exhaustive-deps

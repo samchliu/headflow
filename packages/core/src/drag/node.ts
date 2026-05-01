@@ -58,6 +58,7 @@ export function processNodeMove(
     n.position = { x: newX, y: newY }
     n.el.style.transform = `translate(${newX}px, ${newY}px)`
     ctx.recalcHandlesForNode(id)
+    ctx.emit('nodeMoved', { nodeId: id, position: { x: newX, y: newY } })
   }
 }
 
