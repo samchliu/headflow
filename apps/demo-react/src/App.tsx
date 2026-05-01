@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type CSSProperties, useEffect, useMemo, useState } from 'react'
 import {
   useFlowCanvas,
   useNode,
@@ -9,40 +9,60 @@ import {
 } from '@headflow/react'
 import type { Edge } from '@headflow/react'
 import { useFlowContext } from '@headflow/react'
-import { bezierPath } from './bezier'
+import { bezierPath, normalizeLassoRect } from '@headflow/renderer'
+
+const TOKENS = {
+  canvasBg: '#0d0d0d',
+  surfaceBg: '#141414',
+  headerBg: '#111111',
+  borderDefault: '#262626',
+  borderAccent: '#6366f1',
+  textPrimary: '#f0f0f0',
+  textMuted: '#8a8a8a',
+  accent: '#6366f1',
+  accentAlt: '#10b981',
+  edge: '#818cf8',
+  dot: '#2a2a2a',
+} as const
 
 // ── Node component ────────────────────────────────────────────────────────────
 
 interface FlowNodeProps {
   id: string
   label: string
+  kind: 'input' | 'transform' | 'output'
   defaultPosition: { x: number; y: number }
 }
 
-function FlowNode({ id, label, defaultPosition }: FlowNodeProps) {
+function FlowNode({ id, label, kind, defaultPosition }: FlowNodeProps) {
   const nodeRef = useNode(id, { defaultPosition })
   const outputRef = useHandle(id, 'output', 'source')
   const inputRef = useHandle(id, 'input', 'target')
   const selected = useSelection()
 
   const isSelected = selected.has(id)
+  const topAccent = kind === 'input' ? '#10b981' : kind === 'output' ? '#f59e0b' : '#6366f1'
 
   return (
     <div
       ref={nodeRef}
+      role="button"
+      aria-label={`${label} node`}
       style={{
         position: 'absolute',
         top: 0,
         left: 0,
         width: 160,
-        background: isSelected ? '#1e1b4b' : '#1c1c1c',
-        border: `1.5px solid ${isSelected ? '#6366f1' : '#333'}`,
-        borderRadius: 10,
+        background: isSelected ? '#1a1836' : TOKENS.surfaceBg,
+        border: `1.5px solid ${isSelected ? TOKENS.borderAccent : TOKENS.borderDefault}`,
+        borderTop: `4px solid ${topAccent}`,
+        borderRadius: 8,
         padding: '10px 14px',
         cursor: 'grab',
         userSelect: 'none',
-        boxShadow: isSelected ? '0 0 0 2px #6366f144' : '0 2px 8px #0006',
-        transition: 'border-color 0.1s, background 0.1s',
+        color: TOKENS.textPrimary,
+        boxShadow: isSelected ? '0 0 0 2px #6366f133' : '0 4px 16px #0008',
+        transition: 'border-color 0.12s, background 0.12s, box-shadow 0.12s',
       }}
     >
       {/* Input handle */}
@@ -50,6 +70,7 @@ function FlowNode({ id, label, defaultPosition }: FlowNodeProps) {
         ref={inputRef}
         data-flow-handle="target"
         data-flow-handle-id="input"
+        aria-label="Input handle"
         style={{
           position: 'absolute',
           left: -7,
@@ -58,19 +79,23 @@ function FlowNode({ id, label, defaultPosition }: FlowNodeProps) {
           width: 14,
           height: 14,
           borderRadius: '50%',
-          background: '#6366f1',
-          border: '2px solid #0f0f0f',
+          background: TOKENS.accent,
+          border: `2px solid ${TOKENS.canvasBg}`,
+          boxShadow: '0 0 0 3px #6366f133',
           cursor: 'crosshair',
         }}
       />
 
-      <span style={{ fontSize: 13, fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 500, fontFamily: 'Geist Mono, ui-monospace, monospace' }}>
+        {label}
+      </span>
 
       {/* Output handle */}
       <div
         ref={outputRef}
         data-flow-handle="source"
         data-flow-handle-id="output"
+        aria-label="Output handle"
         style={{
           position: 'absolute',
           right: -7,
@@ -79,8 +104,9 @@ function FlowNode({ id, label, defaultPosition }: FlowNodeProps) {
           width: 14,
           height: 14,
           borderRadius: '50%',
-          background: '#10b981',
-          border: '2px solid #0f0f0f',
+          background: TOKENS.accentAlt,
+          border: `2px solid ${TOKENS.canvasBg}`,
+          boxShadow: '0 0 0 3px #10b98133',
           cursor: 'crosshair',
         }}
       />
@@ -143,7 +169,7 @@ function EdgeLayer() {
     >
       <defs>
         <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
-          <polygon points="0 0, 8 3, 0 6" fill="#4f4f4f" />
+          <polygon points="0 0, 8 3, 0 6" fill={TOKENS.edge} />
         </marker>
       </defs>
 
@@ -152,8 +178,8 @@ function EdgeLayer() {
           key={edge.id}
           d={bezierPath(edge.source.pt, edge.target.pt)}
           fill="none"
-          stroke="#4f4f4f"
-          strokeWidth={2}
+          stroke={TOKENS.edge}
+          strokeWidth={1.5}
           markerEnd="url(#arrowhead)"
         />
       ))}
@@ -180,49 +206,144 @@ function LassoOverlay() {
   const lasso = useLasso()
   if (!lasso) return null
 
-  const x = lasso.w < 0 ? lasso.x + lasso.w : lasso.x
-  const y = lasso.h < 0 ? lasso.y + lasso.h : lasso.y
-  const w = Math.abs(lasso.w)
-  const h = Math.abs(lasso.h)
+  const normalized = normalizeLassoRect(lasso)
 
-  if (w < 4 && h < 4) return null
+  if (normalized.w < 4 && normalized.h < 4) return null
 
   return (
     <div
       style={{
         position: 'absolute',
-        left: x,
-        top: y,
-        width: w,
-        height: h,
-        border: '1.5px dashed #6366f1',
+        left: normalized.x,
+        top: normalized.y,
+        width: normalized.w,
+        height: normalized.h,
+        border: `1.5px dashed ${TOKENS.accent}`,
         background: 'rgba(99,102,241,0.07)',
         pointerEvents: 'none',
-        borderRadius: 3,
+        borderRadius: 4,
       }}
     />
   )
 }
 
+function Hud() {
+  const { getEngine } = useFlowContext()
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
+  const [zoom, setZoom] = useState(1)
+
+  useEffect(() => {
+    const engine = getEngine()
+
+    const sync = () => {
+      setCanUndo(engine.canUndo())
+      setCanRedo(engine.canRedo())
+      setZoom(engine.getViewport().scale)
+    }
+
+    sync()
+    engine.on('viewportChanged', sync)
+    engine.on('nodeMoved', sync)
+    engine.on('edgeCreated', sync)
+    engine.on('edgeDeleted', sync)
+    engine.on('selectionChanged', sync)
+
+    return () => {
+      engine.off('viewportChanged', sync)
+      engine.off('nodeMoved', sync)
+      engine.off('edgeCreated', sync)
+      engine.off('edgeDeleted', sync)
+      engine.off('selectionChanged', sync)
+    }
+  // getEngine is stable
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: 20,
+        bottom: 20,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '10px 12px',
+        borderRadius: 10,
+        border: `1px solid ${TOKENS.borderDefault}`,
+        background: '#0f0f0fcc',
+        backdropFilter: 'blur(8px)',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => getEngine().undo()}
+        disabled={!canUndo}
+        style={hudButtonStyle}
+      >
+        ↩
+      </button>
+      <button
+        type="button"
+        onClick={() => getEngine().redo()}
+        disabled={!canRedo}
+        style={hudButtonStyle}
+      >
+        ↪
+      </button>
+      <button type="button" onClick={() => getEngine().fitView()} style={hudButtonStyle}>
+        ⊡
+      </button>
+      <input
+        type="range"
+        min={0.1}
+        max={2}
+        step={0.05}
+        value={zoom}
+        onChange={(e) => getEngine().zoomTo(Number(e.target.value))}
+        aria-label="Zoom"
+        style={{ width: 120 }}
+      />
+      <span style={{ minWidth: 42, fontSize: 12, color: TOKENS.textMuted }}>
+        {Math.round(zoom * 100)}%
+      </span>
+    </div>
+  )
+}
+
+const hudButtonStyle: CSSProperties = {
+  width: 30,
+  height: 30,
+  borderRadius: 7,
+  border: `1px solid ${TOKENS.borderDefault}`,
+  background: TOKENS.surfaceBg,
+  color: TOKENS.textPrimary,
+  cursor: 'pointer',
+}
+
 // ── Canvas ────────────────────────────────────────────────────────────────────
 
 const NODES = [
-  { id: 'n1', label: 'Input Source', x: 60, y: 100 },
-  { id: 'n2', label: 'Transform A', x: 280, y: 60 },
-  { id: 'n3', label: 'Transform B', x: 280, y: 180 },
-  { id: 'n4', label: 'Output Sink', x: 500, y: 120 },
+  { id: 'n1', label: 'Input Source', kind: 'input' as const, x: 60, y: 100 },
+  { id: 'n2', label: 'Transform A', kind: 'transform' as const, x: 280, y: 60 },
+  { id: 'n3', label: 'Transform B', kind: 'transform' as const, x: 280, y: 180 },
+  { id: 'n4', label: 'Output Sink', kind: 'output' as const, x: 500, y: 120 },
 ]
 
 function Canvas({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
   return (
     <div
       ref={canvasRef}
+      role="application"
+      aria-label="Flow canvas"
       style={{
         position: 'relative',
         width: '100%',
         height: '100%',
         overflow: 'hidden',
-        background: 'radial-gradient(#1a1a2e 1px, transparent 1px)',
+        backgroundColor: TOKENS.canvasBg,
+        backgroundImage: `radial-gradient(circle, ${TOKENS.dot} 1px, transparent 1px)`,
         backgroundSize: '24px 24px',
       }}
     >
@@ -231,11 +352,13 @@ function Canvas({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) 
           key={n.id}
           id={n.id}
           label={n.label}
+          kind={n.kind}
           defaultPosition={{ x: n.x, y: n.y }}
         />
       ))}
       <EdgeLayer />
       <LassoOverlay />
+      <Hud />
     </div>
   )
 }
@@ -243,7 +366,19 @@ function Canvas({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) 
 // ── App ───────────────────────────────────────────────────────────────────────
 
 export function App() {
-  const { canvasRef, FlowProvider } = useFlowCanvas({ allowSelfLoop: false })
+  const { canvasRef, FlowProvider } = useFlowCanvas({
+    allowSelfLoop: false,
+    enableBuiltinPanZoom: true,
+  })
+  const titleStyle = useMemo(
+    () => ({
+      fontWeight: 600,
+      fontSize: 15,
+      color: TOKENS.textPrimary,
+      fontFamily: 'Geist Sans, ui-sans-serif, system-ui, sans-serif',
+    }),
+    [],
+  )
 
   return (
     <FlowProvider>
@@ -252,19 +387,39 @@ export function App() {
         <header
           style={{
             padding: '12px 20px',
-            borderBottom: '1px solid #222',
+            background: TOKENS.headerBg,
+            borderBottom: `1px solid ${TOKENS.borderDefault}`,
             display: 'flex',
             alignItems: 'center',
             gap: 12,
           }}
         >
-          <strong style={{ letterSpacing: '0.05em' }}>HeadFlow</strong>
-          <span style={{ color: '#555', fontSize: 13 }}>React Demo</span>
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 999,
+              background: TOKENS.accent,
+              display: 'inline-block',
+            }}
+          />
+          <strong style={titleStyle}>HeadFlow</strong>
+          <span
+            style={{
+              color: TOKENS.textMuted,
+              fontSize: 12,
+              border: `1px solid ${TOKENS.borderDefault}`,
+              borderRadius: 999,
+              padding: '2px 8px',
+            }}
+          >
+            React Demo
+          </span>
           <span
             style={{
               marginLeft: 'auto',
               fontSize: 12,
-              color: '#444',
+              color: '#888',
             }}
           >
             Drag nodes · Connect handles · Shift+drag to lasso select
