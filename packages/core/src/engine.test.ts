@@ -276,6 +276,47 @@ describe('createFlow — engine', () => {
   // ── serialize / restore ───────────────────────────────────────────────────
 
   describe('serialize / restore', () => {
+    it('backfills handle registration when data-flow-node is attached later', async () => {
+      const n1 = document.createElement('div')
+      const n2 = document.createElement('div')
+      const h1 = makeHandle('out', 'source')
+      const h2 = makeHandle('in', 'target')
+      n1.appendChild(h1)
+      n2.appendChild(h2)
+      container.appendChild(n1)
+      container.appendChild(n2)
+
+      // Simulate adapter mount order where handle hooks run before node hooks.
+      // registerHandle() stamps handle attributes first, but nodeId is unresolved
+      // until data-flow-node appears on an ancestor.
+      engine.registerHandle('n1', 'out', 'source', h1)
+      engine.registerHandle('n2', 'in', 'target', h2)
+
+      engine.registerNode('n1', n1, { x: 50, y: 80 })
+      engine.registerNode('n2', n2, { x: 300, y: 80 })
+
+      // Wait for MutationObserver attribute callbacks to run.
+      await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+      engine.restore({
+        nodes: [
+          { id: 'n1', position: { x: 50, y: 80 } },
+          { id: 'n2', position: { x: 300, y: 80 } },
+        ],
+        edges: [
+          {
+            id: 'e1',
+            source: { nodeId: 'n1', handleId: 'out' },
+            target: { nodeId: 'n2', handleId: 'in' },
+          },
+        ],
+      })
+
+      expect(engine.getEdges()).toHaveLength(1)
+      expect(engine.getEdges()[0].source).toMatchObject({ nodeId: 'n1', handleId: 'out' })
+      expect(engine.getEdges()[0].target).toMatchObject({ nodeId: 'n2', handleId: 'in' })
+    })
+
     it('serialize captures node positions and edge topology', () => {
       const n1 = makeNode('n1')
       const n2 = makeNode('n2')

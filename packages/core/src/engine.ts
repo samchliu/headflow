@@ -149,6 +149,19 @@ export function createFlow(options: FlowOptions): FlowEngine {
 
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
+      if (mutation.type === 'attributes') {
+        const target = mutation.target as HTMLElement
+        if (target.hasAttribute('data-flow-node')) {
+          registerNodeEl(target)
+          target.querySelectorAll<HTMLElement>('[data-flow-handle]').forEach((el) => {
+            registerHandleEl(el)
+          })
+        }
+        if (target.hasAttribute('data-flow-handle')) {
+          registerHandleEl(target)
+        }
+      }
+
       for (const node of mutation.addedNodes) {
         if (!(node instanceof HTMLElement)) continue
         if (node.hasAttribute('data-flow-node')) registerNodeEl(node)
@@ -201,7 +214,12 @@ export function createFlow(options: FlowOptions): FlowEngine {
     registerHandleEl(el),
   )
 
-  observer.observe(container, { childList: true, subtree: true })
+  observer.observe(container, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['data-flow-node', 'data-flow-handle', 'data-flow-handle-id'],
+  })
 
   // ── Drag setup ─────────────────────────────────────────────────────────────
 
