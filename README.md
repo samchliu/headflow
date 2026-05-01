@@ -11,6 +11,7 @@ HeadFlow gives you drag, edge creation, lasso selection, and coordinate transfor
 | [`@headflow/core`](./packages/core) | Framework-agnostic engine — TypeScript, no dependencies except `mitt` |
 | [`@headflow/solid`](./packages/solid) | SolidJS adapter — reactive primitives (`createNode`, `createHandle`, `createEdges`, `createSelection`) |
 | [`@headflow/react`](./packages/react) | React adapter — hooks (`useNode`, `useHandle`, `useEdges`, `useSelection`, `useLasso`) |
+| [`@headflow/renderer`](./packages/renderer) | Renderer math utilities (`bezierPath`, `normalizeLassoRect`) |
 
 ## Quick start
 
@@ -202,6 +203,7 @@ pnpm --filter @headflow/react test
 # Run interactive demos
 pnpm --filter @headflow/demo dev          # SolidJS demo
 pnpm --filter @headflow/demo-react dev   # React demo
+pnpm --filter @headflow/stories dev      # Storybook (renderer + canvas stories)
 
 # Performance benchmark (Playwright required)
 pnpm --filter @headflow/stress-test test:perf
@@ -212,12 +214,14 @@ pnpm --filter @headflow/stress-test test:perf
 ```
 .
 ├── packages/
-│   ├── core/        @headflow/core    — interaction engine
-│   ├── solid/       @headflow/solid   — SolidJS adapter
-│   └── react/       @headflow/react   — React adapter
+│   ├── core/        @headflow/core     — interaction engine
+│   ├── solid/       @headflow/solid    — SolidJS adapter
+│   ├── react/       @headflow/react    — React adapter
+│   └── renderer/    @headflow/renderer — path/overlay math utilities
 └── apps/
     ├── demo/        SolidJS interactive demo
     ├── demo-react/  React interactive demo
+    ├── stories/     Storybook stories for renderer and React canvas
     └── stress-test/ 100-node Playwright perf benchmark
 ```
 

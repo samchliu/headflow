@@ -3,6 +3,7 @@ export { createNode } from './createNode'
 export { createHandle } from './createHandle'
 export { createEdges } from './createEdges'
 export { createSelection, createLasso } from './createSelection'
+export { useFlowContext } from './context'
 
 export type { CreateFlowCanvasOptions, CreateFlowCanvasResult } from './createFlowCanvas'
 export type { CreateNodeOptions, CreateNodeResult } from './createNode'
