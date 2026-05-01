@@ -7,6 +7,14 @@ const config: StorybookConfig = {
     name: '@storybook/react-vite',
     options: {},
   },
+  async viteFinal(config) {
+    const basePath = process.env.STORYBOOK_BASE_PATH
+    if (basePath && basePath.length > 0) {
+      const normalized = basePath.endsWith('/') ? basePath : `${basePath}/`
+      config.base = normalized
+    }
+    return config
+  },
 }
 
 export default config
