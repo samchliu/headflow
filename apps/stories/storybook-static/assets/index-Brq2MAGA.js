@@ -1,0 +1,1 @@
+var M=40;function b(n,x){const s=Math.abs(x.x-n.x),a=Math.max(s*.5,M),h=n.x+a,y=n.y,o=x.x-a,$=x.y;return`M ${n.x},${n.y} C ${h},${y} ${o},${$} ${x.x},${x.y}`}function f(n){return{x:n.w<0?n.x+n.w:n.x,y:n.h<0?n.y+n.h:n.y,w:Math.abs(n.w),h:Math.abs(n.h)}}export{b,f as n};

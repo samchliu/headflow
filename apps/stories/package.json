@@ -1,12 +1,12 @@
 {
-  "name": "@headflow/demo-react",
+  "name": "@headflow/stories",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "storybook dev -p 6006",
+    "build": "storybook build",
+    "preview": "storybook dev -p 6006 --ci"
   },
   "dependencies": {
     "@headflow/react": "workspace:*",
@@ -15,9 +15,13 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@storybook/react-vite": "^8.6.18",
+    "@storybook/react": "^8.6.18",
+    "@storybook/addon-essentials": "^8.6.18",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "storybook": "^8.6.18",
     "typescript": "^5.5.3",
     "vite": "^5.3.1"
   }
