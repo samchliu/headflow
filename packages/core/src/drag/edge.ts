@@ -1,6 +1,6 @@
 import type { DragContext, EdgeDragState } from './types'
 import type { Edge, Point } from '../types'
-import { toCanvasSpace } from '../transform'
+import { getElementCanvasCenter, toCanvasSpace } from '../transform'
 
 export function startEdgeDrag(
   e: PointerEvent,
@@ -18,6 +18,7 @@ export function startEdgeDrag(
     type: 'edge',
     sourceNodeId: nodeId,
     sourceHandleId: handleId,
+    sourceHandleEl: handleEl,
   }
 }
 
@@ -35,7 +36,8 @@ export function processEdgeMove(
 
   const srcKey = `${state.sourceNodeId}::${state.sourceHandleId}`
   const srcHandle = ctx.handleMap.get(srcKey)
-  const sourcePt: Point = srcHandle?.pt ?? { x: 0, y: 0 }
+  const sourcePt: Point =
+    srcHandle?.pt ?? getElementCanvasCenter(state.sourceHandleEl, ctx.container, t)
 
   ctx.emit('draftEdgeMove', {
     sourceHandleId: state.sourceHandleId,

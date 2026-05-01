@@ -23,11 +23,30 @@ export function useHandle(
 
   const ref = useCallback(
     (el: HTMLElement | null) => {
+      const safeGetEngine = () => {
+        try {
+          return getEngine()
+        } catch {
+          return null
+        }
+      }
+
       if (!el) {
-        getEngine().unregisterHandle(nodeId, handleId)
+        safeGetEngine()?.unregisterHandle(nodeId, handleId)
         return
       }
-      getEngine().registerHandle(nodeId, handleId, type, el)
+
+      const engine = safeGetEngine()
+      if (engine) {
+        engine.registerHandle(nodeId, handleId, type, el)
+        return
+      }
+
+      // Engine may not be ready on the exact ref callback tick.
+      requestAnimationFrame(() => {
+        if (!el.isConnected) return
+        safeGetEngine()?.registerHandle(nodeId, handleId, type, el)
+      })
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [nodeId, handleId, type],

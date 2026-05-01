@@ -10,8 +10,10 @@
 packages/core/     @headflow/core   — pure TS interaction engine (no framework deps)
 packages/solid/    @headflow/solid  — SolidJS adapter (reactive primitives)
 packages/react/    @headflow/react  — React adapter (hooks)
+packages/renderer/ @headflow/renderer — renderer math utilities (bezier/lasso normalize)
 apps/demo/         interactive SolidJS demo
 apps/demo-react/   interactive React demo
+apps/stories/      Storybook stories (renderer utilities + React canvas)
 apps/stress-test/  Playwright E2E perf benchmark (100 nodes)
 ```
 
@@ -126,7 +128,7 @@ React adapter, Selection system (select/deselect/clearSelection/moveSelectionBy)
 
 ### Phase 4 (next)
 - **`@headflow/renderer`**: Pure-math utility package — `bezierPath(source, target)` → SVG path string, `normalizeLassoRect(rect)` → `{ x, y, w, h }`. Framework-agnostic. Resolves `bezier.ts` duplication in both demos.
-- **`apps/stories/`**: Histoire story viewer (`@histoire/plugin-react` only). Stories for renderer utilities + full React canvas demo.
+- **`apps/stories/`**: Storybook (`@storybook/react-vite`) for renderer utility stories + full React canvas story.
 - **Demo redesign** (design review decisions — see below): Unified dark theme, Geist Sans/Mono font, floating HUD for Phase 3 controls.
 - **Demo feature parity**: SolidJS demo brought to feature parity with React demo (draft edge, selection highlight, lasso overlay).
 

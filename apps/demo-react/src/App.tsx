@@ -232,14 +232,26 @@ function Hud() {
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const [zoom, setZoom] = useState(1)
+  const [hasViewportApi, setHasViewportApi] = useState(true)
 
   useEffect(() => {
     const engine = getEngine()
+    const hasHistoryApi =
+      typeof (engine as { canUndo?: unknown }).canUndo === 'function' &&
+      typeof (engine as { canRedo?: unknown }).canRedo === 'function' &&
+      typeof (engine as { undo?: unknown }).undo === 'function' &&
+      typeof (engine as { redo?: unknown }).redo === 'function'
+
+    const hasViewport =
+      typeof (engine as { getViewport?: unknown }).getViewport === 'function' &&
+      typeof (engine as { zoomTo?: unknown }).zoomTo === 'function' &&
+      typeof (engine as { fitView?: unknown }).fitView === 'function'
 
     const sync = () => {
-      setCanUndo(engine.canUndo())
-      setCanRedo(engine.canRedo())
-      setZoom(engine.getViewport().scale)
+      setCanUndo(hasHistoryApi ? engine.canUndo() : false)
+      setCanRedo(hasHistoryApi ? engine.canRedo() : false)
+      setHasViewportApi(hasViewport)
+      setZoom(hasViewport ? engine.getViewport().scale : 1)
     }
 
     sync()
@@ -278,7 +290,10 @@ function Hud() {
     >
       <button
         type="button"
-        onClick={() => getEngine().undo()}
+        onClick={() => {
+          const current = getEngine() as { undo?: () => void }
+          current.undo?.()
+        }}
         disabled={!canUndo}
         style={hudButtonStyle}
       >
@@ -286,13 +301,24 @@ function Hud() {
       </button>
       <button
         type="button"
-        onClick={() => getEngine().redo()}
+        onClick={() => {
+          const current = getEngine() as { redo?: () => void }
+          current.redo?.()
+        }}
         disabled={!canRedo}
         style={hudButtonStyle}
       >
         ↪
       </button>
-      <button type="button" onClick={() => getEngine().fitView()} style={hudButtonStyle}>
+      <button
+        type="button"
+        disabled={!hasViewportApi}
+        onClick={() => {
+          const current = getEngine() as { fitView?: () => void }
+          current.fitView?.()
+        }}
+        style={hudButtonStyle}
+      >
         ⊡
       </button>
       <input
@@ -301,7 +327,11 @@ function Hud() {
         max={2}
         step={0.05}
         value={zoom}
-        onChange={(e) => getEngine().zoomTo(Number(e.target.value))}
+        disabled={!hasViewportApi}
+        onChange={(e) => {
+          const current = getEngine() as { zoomTo?: (scale: number) => void }
+          current.zoomTo?.(Number(e.target.value))
+        }}
         aria-label="Zoom"
         style={{ width: 120 }}
       />

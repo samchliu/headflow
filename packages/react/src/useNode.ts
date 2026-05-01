@@ -27,11 +27,31 @@ export function useNode(
 
   const ref = useCallback(
     (el: HTMLElement | null) => {
+      const safeGetEngine = () => {
+        try {
+          return getEngine()
+        } catch {
+          return null
+        }
+      }
+
       if (!el) {
-        getEngine().unregisterNode(nodeId)
+        safeGetEngine()?.unregisterNode(nodeId)
         return
       }
-      getEngine().registerNode(nodeId, el, options?.defaultPosition)
+
+      const engine = safeGetEngine()
+      if (engine) {
+        engine.registerNode(nodeId, el, options?.defaultPosition)
+        return
+      }
+
+      // Engine can be briefly unavailable during mount ordering (e.g. Storybook / StrictMode).
+      // Retry on the next frame once the canvas ref has initialised the engine.
+      requestAnimationFrame(() => {
+        if (!el.isConnected) return
+        safeGetEngine()?.registerNode(nodeId, el, options?.defaultPosition)
+      })
     },
     // Re-register when nodeId changes
     // eslint-disable-next-line react-hooks/exhaustive-deps

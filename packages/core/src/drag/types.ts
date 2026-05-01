@@ -39,6 +39,8 @@ export type EdgeDragState = {
   type: 'edge'
   sourceNodeId: string
   sourceHandleId: string
+  /** Source handle element at drag start (fallback for live point calculation). */
+  sourceHandleEl: HTMLElement
 }
 
 export type LassoDragState = {
