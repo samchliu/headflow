@@ -36,6 +36,15 @@ export function useHandle(
         return
       }
 
+      // Always write attributes first so core can discover handles via initial scan /
+      // MutationObserver even if engine init lags behind this ref callback.
+      if (!el.hasAttribute('data-flow-handle')) {
+        el.setAttribute('data-flow-handle', type)
+      }
+      if (!el.hasAttribute('data-flow-handle-id')) {
+        el.setAttribute('data-flow-handle-id', handleId)
+      }
+
       const engine = safeGetEngine()
       if (engine) {
         engine.registerHandle(nodeId, handleId, type, el)

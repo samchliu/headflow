@@ -52,7 +52,8 @@ export function finishEdgeDrag(
   state: EdgeDragState,
   ctx: DragContext,
 ): void {
-  const target = e.target as Element
+  const targetFromPoint = document.elementFromPoint(e.clientX, e.clientY)
+  const target = (targetFromPoint ?? e.target) as Element
   const targetHandleEl = target.closest('[data-flow-handle]') as HTMLElement | null
   const targetNodeEl = target.closest('[data-flow-node]') as HTMLElement | null
   let created = false

@@ -40,6 +40,12 @@ export function useNode(
         return
       }
 
+      // Always write attributes first so core can discover nodes via initial scan /
+      // MutationObserver even if engine init lags behind this ref callback.
+      if (!el.hasAttribute('data-flow-node')) {
+        el.setAttribute('data-flow-node', nodeId)
+      }
+
       const engine = safeGetEngine()
       if (engine) {
         engine.registerNode(nodeId, el, options?.defaultPosition)
