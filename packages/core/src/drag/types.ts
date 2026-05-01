@@ -1,5 +1,6 @@
 import type { CanvasTransform, Edge, HandleEntry, NodeEntry, Point, Rect } from '../types'
 import type { SelectionManager } from '../selection'
+import type { HistoryManager } from '../history'
 
 export interface DragContext {
   container: HTMLElement
@@ -11,6 +12,8 @@ export interface DragContext {
   recalcHandlesForNode: (nodeId: string) => void
   selection: SelectionManager
   options: DragOptions
+  /** Optional — when provided, drag operations record undo/redo commands. */
+  history?: Pick<HistoryManager, 'record'>
 }
 
 export interface DragOptions {
@@ -25,6 +28,11 @@ export type NodeDragState = {
   startPointerY: number
   startNodeX: number
   startNodeY: number
+  /**
+   * Snapshot of ALL selected nodes' positions at drag start.
+   * Used to move the entire selection together (group drag) and for undo.
+   */
+  selectionSnapshot: Map<string, Point>
 }
 
 export type EdgeDragState = {

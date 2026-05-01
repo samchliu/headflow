@@ -2,9 +2,12 @@ import mitt from 'mitt'
 import { DEFAULT_TRANSFORM, getElementCanvasCenter, getNodeInitialPosition } from './transform'
 import { setupDrag } from './drag/index'
 import { createSelectionManager } from './selection'
+import { createHistoryManager } from './history'
+import { setupPanZoom } from './panzoom'
 import type {
   CanvasTransform,
   Edge,
+  FitViewOptions,
   FlowEngine,
   FlowEvents,
   FlowOptions,
@@ -16,7 +19,7 @@ import type {
 } from './types'
 
 export function createFlow(options: FlowOptions): FlowEngine {
-  const { container, allowSelfLoop = false } = options
+  const { container, allowSelfLoop = false, enableBuiltinPanZoom = false } = options
 
   // ── Internal state ─────────────────────────────────────────────────────────
 
@@ -31,6 +34,10 @@ export function createFlow(options: FlowOptions): FlowEngine {
   // ── Selection manager ──────────────────────────────────────────────────────
 
   const selection = createSelectionManager(nodeMap, emitter)
+
+  // ── History manager ────────────────────────────────────────────────────────
+
+  const history = createHistoryManager()
 
   // ── Position helpers ───────────────────────────────────────────────────────
 
@@ -209,7 +216,26 @@ export function createFlow(options: FlowOptions): FlowEngine {
     recalcHandlesForNode,
     selection,
     options: { allowSelfLoop },
+    history,
   })
+
+  // ── Built-in pan/zoom (optional) ───────────────────────────────────────────
+
+  const cleanupPanZoom = enableBuiltinPanZoom
+    ? setupPanZoom(container, () => transform, applyTransform)
+    : null
+
+  // ── Transform helpers ──────────────────────────────────────────────────────
+
+  /**
+   * Apply a partial transform update, defer handle recalculation to the next
+   * rAF (avoids race conditions with in-flight drags), and emit viewportChanged.
+   */
+  function applyTransform(partial: Partial<CanvasTransform>): void {
+    transform = { ...transform, ...partial }
+    requestAnimationFrame(recalcAllHandles)
+    emitter.emit('viewportChanged', { ...transform })
+  }
 
   // ── Public FlowEngine ──────────────────────────────────────────────────────
 
@@ -218,13 +244,76 @@ export function createFlow(options: FlowOptions): FlowEngine {
     off: emitter.off.bind(emitter) as FlowEngine['off'],
 
     // ── CRITICAL GAP FIX: setTransform defers recalcAllHandles to rAF ─────
-    // If a drag pointerup fires before the rAF, handle pts will be stale for
-    // the current frame but will be correct by the next rAF tick. Adapters
-    // that need immediate accuracy should call recalcAllHandles() directly —
-    // but for Phase 2 the deferred approach is documented as a known trade-off.
     setTransform(partial) {
-      transform = { ...transform, ...partial }
-      requestAnimationFrame(recalcAllHandles)
+      applyTransform(partial)
+    },
+
+    // ── Viewport API ──────────────────────────────────────────────────────
+
+    getViewport() {
+      return { ...transform }
+    },
+
+    fitView(opts: FitViewOptions = {}) {
+      const { padding = 40, minScale = 0.1, maxScale = 2 } = opts
+      const nodes = [...nodeMap.values()]
+      if (nodes.length === 0) return
+
+      // Bounding box in canvas space
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      for (const node of nodes) {
+        const w = node.el.offsetWidth || 80
+        const h = node.el.offsetHeight || 40
+        if (node.position.x < minX) minX = node.position.x
+        if (node.position.y < minY) minY = node.position.y
+        if (node.position.x + w > maxX) maxX = node.position.x + w
+        if (node.position.y + h > maxY) maxY = node.position.y + h
+      }
+
+      const contentW = maxX - minX
+      const contentH = maxY - minY
+      const viewW = container.clientWidth || 800
+      const viewH = container.clientHeight || 600
+
+      const scale = Math.min(
+        maxScale,
+        Math.max(minScale, Math.min(
+          (viewW - padding * 2) / (contentW || 1),
+          (viewH - padding * 2) / (contentH || 1),
+        )),
+      )
+
+      // Center the content
+      const translateX = (viewW - contentW * scale) / 2 - minX * scale
+      const translateY = (viewH - contentH * scale) / 2 - minY * scale
+
+      applyTransform({ scale, translateX, translateY })
+    },
+
+    panTo(canvasX, canvasY) {
+      const viewW = container.clientWidth || 800
+      const viewH = container.clientHeight || 600
+      applyTransform({
+        translateX: viewW / 2 - canvasX * transform.scale,
+        translateY: viewH / 2 - canvasY * transform.scale,
+      })
+    },
+
+    zoomTo(newScale, anchor) {
+      const viewW = container.clientWidth || 800
+      const viewH = container.clientHeight || 600
+      const anchorX = anchor?.x ?? viewW / 2
+      const anchorY = anchor?.y ?? viewH / 2
+
+      // Keep the anchor point fixed in viewport space
+      const canvasX = (anchorX - transform.translateX) / transform.scale
+      const canvasY = (anchorY - transform.translateY) / transform.scale
+
+      applyTransform({
+        scale: newScale,
+        translateX: anchorX - canvasX * newScale,
+        translateY: anchorY - canvasY * newScale,
+      })
     },
 
     setNodePosition(nodeId, position) {
@@ -237,7 +326,28 @@ export function createFlow(options: FlowOptions): FlowEngine {
     },
 
     removeEdge(edgeId) {
-      if (!edgeMap.has(edgeId)) return
+      const edge = edgeMap.get(edgeId)
+      if (!edge) return
+
+      // Record for undo BEFORE deleting
+      const snapshot = {
+        ...edge,
+        source: { ...edge.source, pt: { ...edge.source.pt } },
+        target: { ...edge.target, pt: { ...edge.target.pt } },
+      }
+      history.record({
+        undo() {
+          if (edgeMap.has(snapshot.id)) return
+          edgeMap.set(snapshot.id, snapshot)
+          emitter.emit('edgeCreated', { edge: snapshot })
+        },
+        redo() {
+          if (!edgeMap.has(snapshot.id)) return
+          edgeMap.delete(snapshot.id)
+          emitter.emit('edgeDeleted', { edgeId: snapshot.id })
+        },
+      })
+
       edgeMap.delete(edgeId)
       emitter.emit('edgeDeleted', { edgeId })
     },
@@ -295,6 +405,8 @@ export function createFlow(options: FlowOptions): FlowEngine {
     destroy() {
       observer.disconnect()
       cleanupDrag()
+      cleanupPanZoom?.()
+      history.clear()
       emitter.all.clear()
       nodeMap.clear()
       handleMap.clear()
@@ -325,6 +437,13 @@ export function createFlow(options: FlowOptions): FlowEngine {
     },
 
     moveSelectionBy(delta) {
+      // Snapshot before-positions for undo recording
+      const prevPositions = new Map<string, Point>()
+      for (const id of selection.getSelection()) {
+        const node = nodeMap.get(id)
+        if (node) prevPositions.set(id, { ...node.position })
+      }
+
       const moved = selection.moveSelectionBy(delta, recalcHandlesForNode)
       for (const nodeId of moved) {
         const node = nodeMap.get(nodeId)
@@ -332,6 +451,55 @@ export function createFlow(options: FlowOptions): FlowEngine {
           emitter.emit('nodeMoved', { nodeId, position: { ...node.position } })
         }
       }
+
+      // Record in history
+      if (prevPositions.size > 0) {
+        const nextPositions = new Map<string, Point>()
+        for (const [id] of prevPositions) {
+          const node = nodeMap.get(id)
+          if (node) nextPositions.set(id, { ...node.position })
+        }
+        history.record({
+          undo() {
+            for (const [id, prev] of prevPositions) {
+              const node = nodeMap.get(id)
+              if (!node) continue
+              node.position = { ...prev }
+              node.el.style.transform = `translate(${prev.x}px, ${prev.y}px)`
+              recalcHandlesForNode(id)
+              emitter.emit('nodeMoved', { nodeId: id, position: { ...prev } })
+            }
+          },
+          redo() {
+            for (const [id, next] of nextPositions) {
+              const node = nodeMap.get(id)
+              if (!node) continue
+              node.position = { ...next }
+              node.el.style.transform = `translate(${next.x}px, ${next.y}px)`
+              recalcHandlesForNode(id)
+              emitter.emit('nodeMoved', { nodeId: id, position: { ...next } })
+            }
+          },
+        })
+      }
+    },
+
+    // ── History API ──────────────────────────────────────────────────────────
+
+    undo() {
+      history.undo()
+    },
+
+    redo() {
+      history.redo()
+    },
+
+    canUndo() {
+      return history.canUndo()
+    },
+
+    canRedo() {
+      return history.canRedo()
     },
 
     // ── Adapter-facing ───────────────────────────────────────────────────────

@@ -59,7 +59,17 @@ export interface SerializedGraph {
 export interface FlowOptions {
   container: HTMLElement
   allowSelfLoop?: boolean
+  /** When true, wheel → zoom (Ctrl/Cmd+wheel = pinch) and trackpad pan are handled automatically. */
   enableBuiltinPanZoom?: boolean
+}
+
+export interface FitViewOptions {
+  /** Extra padding around all nodes in viewport pixels. Default: 40 */
+  padding?: number
+  /** Minimum allowed scale. Default: 0.1 */
+  minScale?: number
+  /** Maximum allowed scale. Default: 2 */
+  maxScale?: number
 }
 
 export type FlowEvents = {
@@ -85,6 +95,8 @@ export type FlowEvents = {
   lassoUpdate: { rect: Rect }
   /** Emitted when lasso drag ends (selection has already been updated) */
   lassoEnd: undefined
+  /** Emitted after any transform change (setTransform, fitView, panTo, zoomTo, built-in pan/zoom) */
+  viewportChanged: CanvasTransform
 }
 
 export interface FlowEngine {
@@ -99,6 +111,15 @@ export interface FlowEngine {
 
   /** Notify lib of a new canvas transform (zoom/pan). */
   setTransform(transform: Partial<CanvasTransform>): void
+  /** Return the current viewport transform. */
+  getViewport(): CanvasTransform
+  /** Fit all nodes into the viewport. */
+  fitView(options?: FitViewOptions): void
+  /** Pan so that the given canvas point is centered in the viewport. */
+  panTo(canvasX: number, canvasY: number): void
+  /** Zoom to the given scale, optionally anchored at a viewport-space point. */
+  zoomTo(scale: number, anchor?: Point): void
+
   /** Programmatically move a node (e.g. after restore()). */
   setNodePosition(nodeId: string, position: Point): void
   /** Remove an edge by id. */
@@ -111,6 +132,16 @@ export interface FlowEngine {
   restore(state: SerializedGraph): void
   /** Remove all event listeners and DOM observers. Must be called on unmount. */
   destroy(): void
+
+  // ── History (Undo/Redo) ────────────────────────────────────────────────────
+  /** Undo the last recorded action (node move, edge create/delete). */
+  undo(): void
+  /** Redo the last undone action. */
+  redo(): void
+  /** True if there is an action to undo. */
+  canUndo(): boolean
+  /** True if there is an action to redo. */
+  canRedo(): boolean
 
   // ── Selection API ─────────────────────────────────────────────────────────
   /** Select a single node by id (additive). */

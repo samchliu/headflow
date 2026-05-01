@@ -1,3 +1,4 @@
+import type { Point } from '../types'
 import type { DragContext, NodeDragState } from './types'
 
 export function startNodeDrag(
@@ -11,6 +12,22 @@ export function startNodeDrag(
   const node = ctx.nodeMap.get(nodeId)
   if (!node) return null
 
+  // Snapshot start positions of ALL nodes in the current selection so that
+  // the entire group moves together (group drag). If the dragged node is not
+  // in the selection we only track the single node.
+  const sel = ctx.selection.getSelection()
+  const selectionSnapshot = new Map<string, Point>()
+
+  if (sel.has(nodeId)) {
+    for (const id of sel) {
+      const n = ctx.nodeMap.get(id)
+      if (n) selectionSnapshot.set(id, { ...n.position })
+    }
+  } else {
+    // Dragging a non-selected node — track only it
+    selectionSnapshot.set(nodeId, { ...node.position })
+  }
+
   return {
     type: 'node',
     nodeId,
@@ -19,6 +36,7 @@ export function startNodeDrag(
     startPointerY: e.clientY,
     startNodeX: node.position.x,
     startNodeY: node.position.y,
+    selectionSnapshot,
   }
 }
 
@@ -30,26 +48,16 @@ export function processNodeMove(
   const t = ctx.getTransform()
   const dx = (e.clientX - state.startPointerX) / t.scale
   const dy = (e.clientY - state.startPointerY) / t.scale
-  const newX = state.startNodeX + dx
-  const newY = state.startNodeY + dy
 
-  const node = ctx.nodeMap.get(state.nodeId)
-  if (!node) return
-
-  node.position = { x: newX, y: newY }
-  node.el.style.transform = `translate(${newX}px, ${newY}px)`
-  ctx.recalcHandlesForNode(state.nodeId)
-
-  // Also move other selected nodes by the same delta (group drag)
-  const selected = ctx.selection.getSelection()
-  if (selected.has(state.nodeId) && selected.size > 1) {
-    for (const otherId of selected) {
-      if (otherId === state.nodeId) continue
-      const other = ctx.nodeMap.get(otherId)
-      if (!other) continue
-      // We need the original positions of group members — store them in state
-      // For Phase 2 this is simplified: group drag is handled via moveSelection
-    }
+  // Move every node in the snapshot — handles both solo drag and group drag
+  for (const [id, startPos] of state.selectionSnapshot) {
+    const n = ctx.nodeMap.get(id)
+    if (!n) continue
+    const newX = startPos.x + dx
+    const newY = startPos.y + dy
+    n.position = { x: newX, y: newY }
+    n.el.style.transform = `translate(${newX}px, ${newY}px)`
+    ctx.recalcHandlesForNode(id)
   }
 }
 
@@ -57,11 +65,40 @@ export function finishNodeDrag(
   state: NodeDragState,
   ctx: DragContext,
 ): void {
-  const node = ctx.nodeMap.get(state.nodeId)
-  if (node) {
-    ctx.emit('nodeMoved', {
-      nodeId: state.nodeId,
-      position: { ...node.position },
+  // Build a before→after map for history recording
+  const moves = new Map<string, { prev: Point; next: Point }>()
+
+  for (const [id, prevPos] of state.selectionSnapshot) {
+    const node = ctx.nodeMap.get(id)
+    if (!node) continue
+    const nextPos = { ...node.position }
+    moves.set(id, { prev: prevPos, next: nextPos })
+    ctx.emit('nodeMoved', { nodeId: id, position: nextPos })
+  }
+
+  // Record in history so the move can be undone/redone
+  if (ctx.history && moves.size > 0) {
+    ctx.history.record({
+      undo() {
+        for (const [id, { prev }] of moves) {
+          const node = ctx.nodeMap.get(id)
+          if (!node) continue
+          node.position = { ...prev }
+          node.el.style.transform = `translate(${prev.x}px, ${prev.y}px)`
+          ctx.recalcHandlesForNode(id)
+          ctx.emit('nodeMoved', { nodeId: id, position: { ...prev } })
+        }
+      },
+      redo() {
+        for (const [id, { next }] of moves) {
+          const node = ctx.nodeMap.get(id)
+          if (!node) continue
+          node.position = { ...next }
+          node.el.style.transform = `translate(${next.x}px, ${next.y}px)`
+          ctx.recalcHandlesForNode(id)
+          ctx.emit('nodeMoved', { nodeId: id, position: { ...next } })
+        }
+      },
     })
   }
 }

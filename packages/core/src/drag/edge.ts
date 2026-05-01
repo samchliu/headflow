@@ -92,6 +92,27 @@ export function finishEdgeDrag(
             ctx.edgeMap.set(edge.id, edge)
             ctx.emit('edgeCreated', { edge })
             created = true
+
+            // Record undo/redo for edge creation
+            if (ctx.history) {
+              const snapshot = {
+                ...edge,
+                source: { ...edge.source, pt: { ...edge.source.pt } },
+                target: { ...edge.target, pt: { ...edge.target.pt } },
+              }
+              ctx.history.record({
+                undo() {
+                  if (!ctx.edgeMap.has(snapshot.id)) return
+                  ctx.edgeMap.delete(snapshot.id)
+                  ctx.emit('edgeDeleted', { edgeId: snapshot.id })
+                },
+                redo() {
+                  if (ctx.edgeMap.has(snapshot.id)) return
+                  ctx.edgeMap.set(snapshot.id, snapshot)
+                  ctx.emit('edgeCreated', { edge: snapshot })
+                },
+              })
+            }
           }
         }
       }

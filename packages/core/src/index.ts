@@ -11,6 +11,7 @@ export type {
   Edge,
   SerializedGraph,
   FlowOptions,
+  FitViewOptions,
   FlowEvents,
   FlowEngine,
 } from './types'
