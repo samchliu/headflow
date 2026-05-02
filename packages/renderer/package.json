@@ -1,9 +1,24 @@
 {
   "name": "@headflow/renderer",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Framework-agnostic renderer math utilities for HeadFlow",
-  "keywords": ["headflow", "renderer", "bezier", "lasso", "utility"],
+  "keywords": [
+    "headflow",
+    "renderer",
+    "bezier",
+    "lasso",
+    "utility"
+  ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchliu/headflow.git",
+    "directory": "packages/renderer"
+  },
+  "homepage": "https://github.com/samchliu/headflow/tree/main/packages/renderer",
+  "bugs": {
+    "url": "https://github.com/samchliu/headflow/issues"
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -14,7 +29,10 @@
       "require": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -22,7 +40,7 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
-    "@headflow/core": "^0.1.0"
+    "@headflow/core": "^0.1.2"
   },
   "devDependencies": {
     "@headflow/core": "workspace:*",

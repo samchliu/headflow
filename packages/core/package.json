@@ -1,9 +1,24 @@
 {
   "name": "@headflow/core",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Headless node graph interaction engine — framework agnostic",
-  "keywords": ["node-graph", "flow", "headless", "canvas", "diagram"],
+  "keywords": [
+    "node-graph",
+    "flow",
+    "headless",
+    "canvas",
+    "diagram"
+  ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchliu/headflow.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/samchliu/headflow/tree/main/packages/core",
+  "bugs": {
+    "url": "https://github.com/samchliu/headflow/issues"
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -14,7 +29,10 @@
       "require": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

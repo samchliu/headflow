@@ -1,6 +1,6 @@
 {
   "name": "@headflow/solid",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "SolidJS adapter for HeadFlow",
   "keywords": [
     "node-graph",
@@ -9,6 +9,15 @@
     "solidjs"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchliu/headflow.git",
+    "directory": "packages/solid"
+  },
+  "homepage": "https://github.com/samchliu/headflow/tree/main/packages/solid",
+  "bugs": {
+    "url": "https://github.com/samchliu/headflow/issues"
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,7 +29,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "vite build",
