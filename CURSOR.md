@@ -11,8 +11,6 @@ packages/core/     @headflow/core   — pure TS interaction engine (no framework
 packages/solid/    @headflow/solid  — SolidJS adapter (reactive primitives)
 packages/react/    @headflow/react  — React adapter (hooks)
 packages/renderer/ @headflow/renderer — renderer math utilities (bezier/lasso normalize)
-apps/demo/         interactive SolidJS demo
-apps/demo-react/   interactive React demo
 apps/stories/      Storybook stories (renderer utilities + React canvas)
 apps/stress-test/  Playwright E2E perf benchmark (100 nodes)
 ```
@@ -107,8 +105,6 @@ pnpm --filter @headflow/react build       # build react (depends on core)
 pnpm --filter @headflow/core test         # unit tests (vitest + jsdom)
 pnpm --filter @headflow/solid test        # unit tests (vitest + jsdom)
 pnpm --filter @headflow/react test        # unit tests (vitest + jsdom)
-pnpm --filter @headflow/demo dev          # SolidJS demo dev server
-pnpm --filter @headflow/demo-react dev    # React demo dev server
 ```
 
 ## Phase roadmap
@@ -140,7 +136,7 @@ React adapter, Selection system (select/deselect/clearSelection/moveSelectionBy)
 
 ## Demo Design System (Phase 4)
 
-Decisions from `/plan-design-review` on 2026-05-01. Both `apps/demo/` and `apps/demo-react/` must follow these specs.
+Decisions from `/plan-design-review` on 2026-05-01.
 
 ### Theme: Unified Dark
 

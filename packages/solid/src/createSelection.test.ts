@@ -14,7 +14,7 @@ import {
  * "computations created outside a `createRoot`…".
  *
  * The authoritative integration tests for SolidJS adapters live in
- * `apps/demo/` (manual E2E) and `apps/stress-test/` (Playwright).
+ * `apps/stress-test/` (Playwright).
  * These tests verify the module contract and export shapes, which is enough
  * to catch typos, broken imports, and API surface regressions in CI.
  */

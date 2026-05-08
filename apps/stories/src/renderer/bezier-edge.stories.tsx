@@ -38,3 +38,11 @@ export const Diagonal: Story = {
 export const ReverseDirection: Story = {
   args: { source: { x: 520, y: 70 }, target: { x: 120, y: 160 }, stroke: '#a5b4fc' },
 }
+
+export const NearVertical: Story = {
+  args: { source: { x: 300, y: 30 }, target: { x: 330, y: 190 }, stroke: '#34d399' },
+}
+
+export const ShortDistance: Story = {
+  args: { source: { x: 260, y: 110 }, target: { x: 340, y: 130 }, stroke: '#f59e0b' },
+}

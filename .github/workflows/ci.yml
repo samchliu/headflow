@@ -45,9 +45,6 @@ jobs:
         run: pnpm --filter=@headflow/solid test
         continue-on-error: true
 
-      - name: Build demo
-        run: pnpm --filter=@headflow/demo build
-
       - name: Build stress-test
         run: pnpm --filter=@headflow/stress-test build
 

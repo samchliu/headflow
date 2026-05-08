@@ -45,3 +45,11 @@ export const PositiveRect: Story = {
 export const DragLeftUp: Story = {
   args: { x: 420, y: 190, w: -240, h: -120 },
 }
+
+export const ZeroWidth: Story = {
+  args: { x: 240, y: 40, w: 0, h: 150 },
+}
+
+export const ZeroHeight: Story = {
+  args: { x: 120, y: 120, w: 260, h: 0 },
+}

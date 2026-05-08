@@ -201,9 +201,8 @@ pnpm --filter @headflow/solid test
 pnpm --filter @headflow/react test
 
 # Run interactive demos
-pnpm --filter @headflow/demo dev          # SolidJS demo
-pnpm --filter @headflow/demo-react dev   # React demo
-pnpm --filter @headflow/stories dev      # Storybook (renderer + canvas stories)
+pnpm --filter @headflow/stories dev   # Storybook (renderer + canvas stories)
+# In Storybook, open Recipes/React/*
 
 # Performance benchmark (Playwright required)
 pnpm --filter @headflow/stress-test test:perf
@@ -219,8 +218,6 @@ pnpm --filter @headflow/stress-test test:perf
 │   ├── react/       @headflow/react    — React adapter
 │   └── renderer/    @headflow/renderer — path/overlay math utilities
 └── apps/
-    ├── demo/        SolidJS interactive demo
-    ├── demo-react/  React interactive demo
     ├── stories/     Storybook stories for renderer and React canvas
     └── stress-test/ 100-node Playwright perf benchmark
 ```
