@@ -2,17 +2,18 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { Meta, StoryObj } from '@storybook/react'
 import { useFlowCanvas, useFlowContext, useHandle, useNode, useSelection } from '@headflow/react'
-import { EdgeLayer, WorldCanvas, T, btn, toolbar } from './shared'
+import { FlowCanvas, EdgeLayer } from '@headflow/react-ui'
+import { T, btn, toolbar } from './shared'
 
 const NODE_IDS = ['source', 'proc-a', 'filter', 'store', 'orphan'] as const
 type NodeId = typeof NODE_IDS[number]
 
 const NODE_META: Record<NodeId, { label: string; kind: 'input' | 'default' | 'output'; requiresInput: boolean }> = {
-  source:  { label: 'Data Source',  kind: 'input',   requiresInput: false },
-  'proc-a':{ label: 'Process A',    kind: 'default',  requiresInput: true  },
-  filter:  { label: 'Filter',       kind: 'default',  requiresInput: true  },
-  store:   { label: 'Storage',      kind: 'output',   requiresInput: true  },
-  orphan:  { label: 'Orphan Task',  kind: 'default',  requiresInput: false },
+  source:   { label: 'Data Source', kind: 'input',   requiresInput: false },
+  'proc-a': { label: 'Process A',   kind: 'default', requiresInput: true  },
+  filter:   { label: 'Filter',      kind: 'default', requiresInput: true  },
+  store:    { label: 'Storage',     kind: 'output',  requiresInput: true  },
+  orphan:   { label: 'Orphan Task', kind: 'default', requiresInput: false },
 }
 
 const DEFAULT_POSITIONS: Record<NodeId, { x: number; y: number }> = {
@@ -29,8 +30,8 @@ interface ValidationError {
 }
 
 function detectCycle(edges: { source: { nodeId: string }; target: { nodeId: string } }[]): boolean {
-  const adj = new Map<string, string[]>(NODE_IDS.map(id => [id, []]))
-  edges.forEach(e => adj.get(e.source.nodeId)?.push(e.target.nodeId))
+  const adj = new Map<string, string[]>(NODE_IDS.map((id) => [id, []]))
+  edges.forEach((e) => adj.get(e.source.nodeId)?.push(e.target.nodeId))
   const visited = new Set<string>()
   const inStack = new Set<string>()
   function dfs(node: string): boolean {
@@ -42,22 +43,18 @@ function detectCycle(edges: { source: { nodeId: string }; target: { nodeId: stri
     inStack.delete(node)
     return false
   }
-  return NODE_IDS.some(n => !visited.has(n) && dfs(n))
+  return NODE_IDS.some((n) => !visited.has(n) && dfs(n))
 }
 
-function ValidatedNode({
-  id,
-  defaultPosition,
-  isError,
-}: {
+function ValidatedNode({ id, defaultPosition, isError }: {
   id: NodeId
   defaultPosition: { x: number; y: number }
   isError: boolean
 }) {
   const { label, kind, requiresInput } = NODE_META[id]
   const nodeRef = useNode(id, { defaultPosition })
-  const srcRef  = useHandle(id, 'output', 'source')
-  const tgtRef  = useHandle(id, 'input',  'target')
+  const srcRef = useHandle(id, 'output', 'source')
+  const tgtRef = useHandle(id, 'input', 'target')
   const selected = useSelection().has(id)
 
   const topColor = kind === 'input' ? T.green : kind === 'output' ? T.amber : T.accent
@@ -75,20 +72,17 @@ function ValidatedNode({
       color: T.text, fontSize: 13, fontFamily: 'ui-monospace, monospace',
       transition: 'border-color 0.2s, background 0.2s',
     }}>
-      {/* Target handle */}
       <div ref={tgtRef} data-flow-handle="target" data-flow-handle-id="input"
         style={{ position: 'absolute', left: -7, top: '50%', transform: 'translateY(-50%)',
           width: 14, height: 14, borderRadius: '50%', background: topColor,
           border: `2px solid ${T.bg}`, cursor: 'crosshair' }}
       />
-      {/* Required input marker */}
       {requiresInput && (
         <div style={{ fontSize: 9, color: isError ? '#fca5a5' : T.muted, marginBottom: 3, letterSpacing: 1 }}>
           {isError ? '! needs input' : 'req. input'}
         </div>
       )}
       {label}
-      {/* Source handle */}
       <div ref={srcRef} data-flow-handle="source" data-flow-handle-id="output"
         style={{ position: 'absolute', right: -7, top: '50%', transform: 'translateY(-50%)',
           width: 14, height: 14, borderRadius: '50%', background: T.green,
@@ -109,26 +103,21 @@ function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
     const result: ValidationError[] = []
     const errSet = new Set<NodeId>()
 
-    const hasOutgoing = new Set(allEdges.map(e => e.source.nodeId))
-    const hasIncoming = new Set(allEdges.map(e => e.target.nodeId))
+    const hasOutgoing = new Set(allEdges.map((e) => e.source.nodeId))
+    const hasIncoming = new Set(allEdges.map((e) => e.target.nodeId))
 
-    // Isolated: no edges at all
-    NODE_IDS.forEach(id => {
+    NODE_IDS.forEach((id) => {
       if (!hasOutgoing.has(id) && !hasIncoming.has(id)) {
         result.push({ nodeId: id, message: `"${NODE_META[id].label}" is isolated — no connections` })
         errSet.add(id)
       }
     })
-
-    // Missing required input
-    NODE_IDS.forEach(id => {
+    NODE_IDS.forEach((id) => {
       if (NODE_META[id].requiresInput && !hasIncoming.has(id) && !errSet.has(id)) {
         result.push({ nodeId: id, message: `"${NODE_META[id].label}" has no incoming connection (required)` })
         errSet.add(id)
       }
     })
-
-    // Cycle detection
     if (detectCycle(allEdges)) {
       result.push({ nodeId: null, message: 'Graph contains a cycle — outputs must not loop back to inputs' })
     }
@@ -141,24 +130,17 @@ function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
   const reset = () => { setErrors([]); setErrorNodes(new Set()); setValidated(false) }
 
   const panelStyle: CSSProperties = {
-    maxHeight: 160,
-    overflowY: 'auto',
-    background: '#0a0a0a',
-    borderTop: `1px solid ${T.border}`,
-    padding: '8px 14px',
-    flexShrink: 0,
+    maxHeight: 160, overflowY: 'auto',
+    background: '#0a0a0a', borderTop: `1px solid ${T.border}`,
+    padding: '8px 14px', flexShrink: 0,
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={toolbar}>
-        <button type="button" style={btn} onClick={validate}>
-          Validate
-        </button>
+        <button type="button" style={btn} onClick={validate}>Validate</button>
         {validated && (
-          <button type="button" style={{ ...btn, opacity: 0.6 }} onClick={reset}>
-            Clear
-          </button>
+          <button type="button" style={{ ...btn, opacity: 0.6 }} onClick={reset}>Clear</button>
         )}
         {validated && (
           <span style={{ fontSize: 12, color: errors.length === 0 ? T.green : '#ef4444', fontFamily: 'ui-monospace, monospace' }}>
@@ -169,10 +151,9 @@ function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
           Build a workflow, then click Validate
         </span>
       </div>
-
       <div style={{ flex: 1, position: 'relative' }}>
-        <WorldCanvas canvasRef={canvasRef}>
-          {NODE_IDS.map(id => (
+        <FlowCanvas canvasRef={canvasRef}>
+          {NODE_IDS.map((id) => (
             <ValidatedNode
               key={id}
               id={id}
@@ -181,9 +162,8 @@ function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
             />
           ))}
           <EdgeLayer />
-        </WorldCanvas>
+        </FlowCanvas>
       </div>
-
       {validated && errors.length > 0 && (
         <div style={panelStyle}>
           {errors.map((e, i) => (
@@ -198,11 +178,6 @@ function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
   )
 }
 
-/**
- * A "Validate" button runs graph checks (isolation, missing required inputs, cycles) using `engine.getEdges()`.
- * Failing nodes are highlighted with a red border; a panel lists each issue by name.
- * @summary graph validation before publish: isolation, missing inputs, cycle detection via engine.getEdges()
- */
 function ValidationBeforePublishStory() {
   const { canvasRef, FlowProvider } = useFlowCanvas({ enableBuiltinPanZoom: true })
   return (
@@ -220,11 +195,11 @@ const meta = {
     docs: {
       description: {
         component: [
-          '**Why this scenario**: Before deploying a workflow you need to verify it is complete — no floating nodes, no missing inputs, no cycles. All validation runs on the serialized edge list with no library changes.',
+          '**Why this scenario**: Before deploying a workflow you need to verify it is complete — no floating nodes, no missing inputs, no cycles.',
           '',
           '**APIs used**: `engine.getEdges()` to inspect topology · DFS cycle detection · `isError` prop drives red-border highlight on nodes',
           '',
-          '**Try this**: 1) Click Validate immediately — "Orphan Task" is isolated and "Process A"/"Filter"/"Storage" are flagged. 2) Connect Data Source → Process A → Storage. 3) Validate again — fewer errors. 4) Connect all remaining nodes; validate passes.',
+          '**Try this**: 1) Click Validate immediately — "Orphan Task" is isolated and others are flagged. 2) Connect Data Source → Process A → Storage. 3) Validate again — fewer errors. 4) Connect all nodes; validate passes.',
         ].join('\n'),
       },
     },

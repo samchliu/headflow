@@ -1,47 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { useCallback, useEffect, useState } from 'react'
-import { useFlowCanvas, useFlowContext } from '@headflow/react'
-import { EdgeLayer, SimpleNode, WorldCanvas, T, btn, toolbar } from './shared'
+import { useFlowCanvas } from '@headflow/react'
+import { useUndoRedo } from '@headflow/react'
+import { FlowCanvas, EdgeLayer } from '@headflow/react-ui'
+import { SimpleNode, T, btn, toolbar } from './shared'
 
 const NODES = [
-  { id: 'n1', label: 'Alpha', kind: 'input' as const, x: 60, y: 120 },
-  { id: 'n2', label: 'Beta', kind: 'default' as const, x: 260, y: 70 },
-  { id: 'n3', label: 'Gamma', kind: 'output' as const, x: 460, y: 120 },
+  { id: 'n1', label: 'Alpha', kind: 'input'   as const, x: 60,  y: 120 },
+  { id: 'n2', label: 'Beta',  kind: 'default' as const, x: 260, y: 70  },
+  { id: 'n3', label: 'Gamma', kind: 'output'  as const, x: 460, y: 120 },
 ]
 
 function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
-  const { getEngine } = useFlowContext()
-  const [canUndo, setCanUndo] = useState(false)
-  const [canRedo, setCanRedo] = useState(false)
-
-  const sync = useCallback(() => {
-    const engine = getEngine()
-    setCanUndo(engine.canUndo())
-    setCanRedo(engine.canRedo())
-  }, [getEngine])
-
-  useEffect(() => {
-    const engine = getEngine()
-    sync()
-    engine.on('nodeMoved', sync)
-    engine.on('edgeCreated', sync)
-    engine.on('edgeDeleted', sync)
-    return () => {
-      engine.off('nodeMoved', sync)
-      engine.off('edgeCreated', sync)
-      engine.off('edgeDeleted', sync)
-    }
-  }, [getEngine, sync])
-
-  const handleUndo = () => {
-    getEngine().undo()
-    sync()
-  }
-
-  const handleRedo = () => {
-    getEngine().redo()
-    sync()
-  }
+  const { undo, redo, canUndo, canRedo } = useUndoRedo()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -50,7 +20,7 @@ function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
           type="button"
           style={{ ...btn, opacity: canUndo ? 1 : 0.4 }}
           disabled={!canUndo}
-          onClick={handleUndo}
+          onClick={undo}
         >
           ← Undo
         </button>
@@ -58,7 +28,7 @@ function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
           type="button"
           style={{ ...btn, opacity: canRedo ? 1 : 0.4 }}
           disabled={!canRedo}
-          onClick={handleRedo}
+          onClick={redo}
         >
           Redo →
         </button>
@@ -74,31 +44,22 @@ function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
         </span>
       </div>
       <div style={{ flex: 1, position: 'relative' }}>
-        <WorldCanvas canvasRef={canvasRef}>
+        <FlowCanvas canvasRef={canvasRef}>
           {NODES.map((n) => (
             <SimpleNode
-              key={n.id}
-              id={n.id}
-              label={n.label}
-              kind={n.kind}
+              key={n.id} id={n.id} label={n.label} kind={n.kind}
               defaultPosition={{ x: n.x, y: n.y }}
             />
           ))}
           <EdgeLayer />
-        </WorldCanvas>
+        </FlowCanvas>
       </div>
     </div>
   )
 }
 
-/**
- * Shows the built-in undo/redo stack: every node drag and edge change is recorded automatically.
- * Buttons disable when the stack is empty; no extra state management is required.
- * @summary built-in undo/redo stack tracks node moves and edge changes automatically
- */
 function UndoRedoStory() {
   const { canvasRef, FlowProvider } = useFlowCanvas({})
-
   return (
     <FlowProvider>
       <Inner canvasRef={canvasRef} />
@@ -116,7 +77,7 @@ const meta = {
         component: [
           '**Why this scenario**: Editable canvases need a reliable undo stack — users expect Cmd+Z to work after every node move or connection.',
           '',
-          '**APIs used**: `engine.undo()`, `engine.redo()`, `engine.canUndo()`, `engine.canRedo()`',
+          '**APIs used**: `useUndoRedo()` — returns `{ undo, redo, canUndo, canRedo }` and keeps state in sync automatically',
           '',
           '**Try this**: 1) Drag a node or draw an edge. 2) Click **← Undo** — the action is reversed. 3) Click **Redo →** to re-apply. Buttons disable automatically when there is nothing to undo/redo.',
         ].join('\n'),
@@ -130,6 +91,6 @@ type Story = StoryObj<typeof meta>
 
 /**
  * Drag a node or draw an edge, click Undo to reverse it, then Redo to re-apply.
- * @summary Undo reverses node moves and edge changes; Redo re-applies them
+ * @summary useUndoRedo() replaces 20 lines of manual state management
  */
 export const Default: Story = {}

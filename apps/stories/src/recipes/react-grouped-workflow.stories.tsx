@@ -1,14 +1,14 @@
 import { useEffect, useRef } from 'react'
 import type { Meta, StoryObj } from '@storybook/react'
 import { useFlowCanvas, useFlowContext, useHandle, useNode, useSelection } from '@headflow/react'
-import { EdgeLayer, SimpleNode, WorldCanvas, T, toolbar } from './shared'
+import { FlowCanvas, EdgeLayer } from '@headflow/react-ui'
+import { SimpleNode, T, toolbar } from './shared'
 
-// Group canvas origin and child absolute positions
 const GRP_DEFAULT = { x: 160, y: 80 }
 const GRP_W = 250
 const GRP_H = 220
 const CHILDREN_DEFAULT: Record<string, { x: number; y: number }> = {
-  step1: { x: GRP_DEFAULT.x + 30, y: GRP_DEFAULT.y + 55  },
+  step1: { x: GRP_DEFAULT.x + 30, y: GRP_DEFAULT.y + 55 },
   step2: { x: GRP_DEFAULT.x + 30, y: GRP_DEFAULT.y + 145 },
 }
 
@@ -35,7 +35,6 @@ function GroupNode({ defaultPosition }: { defaultPosition: { x: number; y: numbe
         userSelect: 'none',
       }}
     >
-      {/* Group label — sits above the top border */}
       <div
         style={{
           position: 'absolute',
@@ -51,8 +50,6 @@ function GroupNode({ defaultPosition }: { defaultPosition: { x: number; y: numbe
       >
         Data Pipeline
       </div>
-
-      {/* External input handle — left edge, vertically centered */}
       <div
         ref={inRef}
         data-flow-handle="target"
@@ -70,8 +67,6 @@ function GroupNode({ defaultPosition }: { defaultPosition: { x: number; y: numbe
           cursor: 'crosshair',
         }}
       />
-
-      {/* External output handle — right edge, vertically centered */}
       <div
         ref={outRef}
         data-flow-handle="source"
@@ -95,27 +90,22 @@ function GroupNode({ defaultPosition }: { defaultPosition: { x: number; y: numbe
 
 function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
   const { getEngine } = useFlowContext()
-  // Track mutable positions without causing re-renders
   const childPosRef = useRef({ ...CHILDREN_DEFAULT })
   const grpPrevRef = useRef({ ...GRP_DEFAULT })
 
   useEffect(() => {
     const engine = getEngine()
     const onMoved = ({ nodeId, position }: { nodeId: string; position: { x: number; y: number } }) => {
-      // Only react to the group node moving
       if (nodeId !== 'grp') return
       const dx = position.x - grpPrevRef.current.x
       const dy = position.y - grpPrevRef.current.y
       grpPrevRef.current = { x: position.x, y: position.y }
-
-      // Move every child by the same delta
       for (const [childId, pos] of Object.entries(childPosRef.current)) {
         const next = { x: pos.x + dx, y: pos.y + dy }
         childPosRef.current[childId] = next
         engine.setNodePosition(childId, next)
       }
     }
-
     engine.on('nodeMoved', onMoved)
     return () => engine.off('nodeMoved', onMoved)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -129,30 +119,19 @@ function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
         </span>
       </div>
       <div style={{ flex: 1, position: 'relative' }}>
-        <WorldCanvas canvasRef={canvasRef}>
-          {/* Group rendered first so children appear on top */}
+        <FlowCanvas canvasRef={canvasRef}>
           <GroupNode defaultPosition={GRP_DEFAULT} />
-
-          {/* Child nodes — rendered after so they stack above the group */}
           <SimpleNode id="step1" label="Step 1: Extract" kind="default" defaultPosition={CHILDREN_DEFAULT.step1} />
-          <SimpleNode id="step2" label="Step 2: Filter"  kind="default" defaultPosition={CHILDREN_DEFAULT.step2} />
-
-          {/* External I/O nodes */}
-          <SimpleNode id="ext-in"  label="Ext Input"  kind="input"  defaultPosition={{ x: 20,  y: 200 }} />
+          <SimpleNode id="step2" label="Step 2: Filter" kind="default" defaultPosition={CHILDREN_DEFAULT.step2} />
+          <SimpleNode id="ext-in" label="Ext Input" kind="input" defaultPosition={{ x: 20, y: 200 }} />
           <SimpleNode id="ext-out" label="Ext Output" kind="output" defaultPosition={{ x: 490, y: 200 }} />
-
           <EdgeLayer />
-        </WorldCanvas>
+        </FlowCanvas>
       </div>
     </div>
   )
 }
 
-/**
- * Implements node grouping without core changes: a container node moves its children by computing
- * the drag delta from `nodeMoved` and calling `setNodePosition` on each child.
- * @summary group node moves children via nodeMoved delta + setNodePosition, all in application code
- */
 function GroupedWorkflowStory() {
   const { canvasRef, FlowProvider } = useFlowCanvas({ enableBuiltinPanZoom: true })
   return (
@@ -174,7 +153,7 @@ const meta = {
           '',
           '**APIs used**: `engine.on("nodeMoved")` · `engine.setNodePosition(id, pos)` · `useNode` + `useHandle` for the group boundary handles',
           '',
-          '**Try this**: 1) Drag the dashed "Data Pipeline" frame — Step 1 and Step 2 follow. 2) Connect Ext Input → group green handle, then group amber handle → Ext Output. 3) Drag Step 1 independently — it moves freely (children can still be repositioned within the group).',
+          '**Try this**: 1) Drag the dashed "Data Pipeline" frame — Step 1 and Step 2 follow. 2) Connect Ext Input → group green handle, then group amber handle → Ext Output. 3) Drag Step 1 independently — it moves freely.',
         ].join('\n'),
       },
     },

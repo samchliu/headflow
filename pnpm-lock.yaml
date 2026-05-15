@@ -23,6 +23,9 @@ importers:
       '@headflow/react':
         specifier: workspace:*
         version: link:../../packages/react
+      '@headflow/react-ui':
+        specifier: workspace:*
+        version: link:../../packages/react-ui
       '@headflow/renderer':
         specifier: workspace:*
         version: link:../../packages/renderer

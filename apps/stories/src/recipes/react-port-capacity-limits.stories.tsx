@@ -2,36 +2,23 @@ import { useEffect, useRef, useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react'
 import { useEdges, useFlowCanvas, useFlowContext, useHandle, useNode, useSelection } from '@headflow/react'
 import type { Edge } from '@headflow/react'
-import { SimpleNode, EdgeLayer, WorldCanvas, T, btn, toolbar } from './shared'
+import { FlowCanvas, EdgeLayer } from '@headflow/react-ui'
+import { SimpleNode, T, btn, toolbar } from './shared'
 
-// Which handles are capacity-limited (nodeId:handleId → max)
-// These are stored in mutable state at the Inner level and passed down.
 const INITIAL_CAPS: Record<string, number> = {
   'reviewer:in': 1,
   'aggregator:in': 3,
 }
-
 const INFINITY = 99999
 
-// Node that shows a capacity badge on its target handle
-function CapacityNode({
-  id,
-  label,
-  handleId,
-  currentCount,
-  maxCount,
-  defaultPosition,
-}: {
-  id: string
-  label: string
-  handleId: string
-  currentCount: number
-  maxCount: number
+function CapacityNode({ id, label, handleId, currentCount, maxCount, defaultPosition }: {
+  id: string; label: string; handleId: string
+  currentCount: number; maxCount: number
   defaultPosition: { x: number; y: number }
 }) {
-  const nodeRef = useNode(id, { defaultPosition })
-  const inRef  = useHandle(id, handleId, 'target')
-  const outRef = useHandle(id, 'out', 'source')
+  const nodeRef  = useNode(id, { defaultPosition })
+  const inRef    = useHandle(id, handleId, 'target')
+  const outRef   = useHandle(id, 'out', 'source')
   const selected = useSelection().has(id)
   const full = currentCount >= maxCount
   const capLabel = maxCount >= INFINITY ? '∞' : String(maxCount)
@@ -45,39 +32,28 @@ function CapacityNode({
       borderRadius: 8, cursor: 'grab', userSelect: 'none',
       color: T.text, fontFamily: 'ui-monospace, monospace',
     }}>
-      {/* Target handle */}
       <div ref={inRef} data-flow-handle="target" data-flow-handle-id={handleId}
-        style={{
-          position: 'absolute', left: -7, top: '50%', transform: 'translateY(-50%)',
+        style={{ position: 'absolute', left: -7, top: '50%', transform: 'translateY(-50%)',
           width: 14, height: 14, borderRadius: '50%',
           background: full ? '#ef4444' : T.accent,
-          border: `2px solid ${T.bg}`, cursor: full ? 'not-allowed' : 'crosshair',
-        }}
+          border: `2px solid ${T.bg}`, cursor: full ? 'not-allowed' : 'crosshair' }}
       />
-      {/* Capacity badge */}
       <div style={{
         position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
         fontSize: 11, color: full ? '#fca5a5' : T.muted,
         background: full ? '#7f1d1d' : '#1a1a1a',
         border: `1px solid ${full ? '#991b1b' : '#333'}`,
-        padding: '1px 6px', borderRadius: 4,
-        fontFamily: 'ui-monospace, monospace',
+        padding: '1px 6px', borderRadius: 4, fontFamily: 'ui-monospace, monospace',
       }}>
         {currentCount}/{capLabel}
       </div>
-
-      {/* Label */}
       <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', fontSize: 12, color: T.text }}>
         {label}
       </div>
-
-      {/* Source handle */}
       <div ref={outRef} data-flow-handle="source" data-flow-handle-id="out"
-        style={{
-          position: 'absolute', right: -7, top: '50%', transform: 'translateY(-50%)',
+        style={{ position: 'absolute', right: -7, top: '50%', transform: 'translateY(-50%)',
           width: 14, height: 14, borderRadius: '50%',
-          background: T.green, border: `2px solid ${T.bg}`, cursor: 'crosshair',
-        }}
+          background: T.green, border: `2px solid ${T.bg}`, cursor: 'crosshair' }}
       />
     </div>
   )
@@ -89,11 +65,10 @@ function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
   const [caps, setCaps] = useState<Record<string, number>>({ ...INITIAL_CAPS })
   const capsRef = useRef<Record<string, number>>({ ...INITIAL_CAPS })
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
   const edges = useEdges()
 
   const countFor = (nodeId: string, handleId: string) =>
-    edges.filter(e => e.target.nodeId === nodeId && e.target.handleId === handleId).length
+    edges.filter((e) => e.target.nodeId === nodeId && e.target.handleId === handleId).length
 
   const flash = (msg: string) => {
     setToast(msg)
@@ -108,7 +83,7 @@ function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
       const max = capsRef.current[key]
       if (max === undefined) return
       const existing = engine.getEdges().filter(
-        e => e.id !== edge.id && e.target.nodeId === edge.target.nodeId && e.target.handleId === edge.target.handleId
+        (e) => e.id !== edge.id && e.target.nodeId === edge.target.nodeId && e.target.handleId === edge.target.handleId,
       )
       if (existing.length >= max) {
         engine.removeEdge(edge.id)
@@ -122,71 +97,56 @@ function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
 
   const setCap = (key: string, max: number) => {
     const engine = getEngine()
-    // Remove edges that exceed the new capacity
     const [nodeId, handleId] = key.split(':')
     if (max < INFINITY) {
-      const excess = engine.getEdges()
-        .filter(e => e.target.nodeId === nodeId && e.target.handleId === handleId)
+      engine.getEdges()
+        .filter((e) => e.target.nodeId === nodeId && e.target.handleId === handleId)
         .slice(max)
-      excess.forEach(e => engine.removeEdge(e.id))
+        .forEach((e) => engine.removeEdge(e.id))
     }
     capsRef.current[key] = max
-    setCaps(prev => ({ ...prev, [key]: max }))
+    setCaps((prev) => ({ ...prev, [key]: max }))
   }
 
   const capBtn = (key: string, val: number, label: string) => (
     <button
+      key={label}
       type="button"
       onClick={() => setCap(key, val)}
       style={{
-        ...btn,
-        padding: '3px 8px',
+        ...btn, padding: '3px 8px', fontSize: 11,
         background: caps[key] === val ? T.accent : '#1e1e1e',
         borderColor: caps[key] === val ? T.accent : '#444',
         color: caps[key] === val ? '#fff' : T.muted,
-        fontSize: 11,
       }}
     >
       {label}
     </button>
   )
 
-  const reviewerCount = countFor('reviewer', 'in')
-  const aggregatorCount = countFor('aggregator', 'in')
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={toolbar}>
         <span style={{ fontSize: 11, color: T.muted }}>Reviewer max:</span>
-        {capBtn('reviewer:in', 1, '1')}
-        {capBtn('reviewer:in', 2, '2')}
-        {capBtn('reviewer:in', 3, '3')}
+        {capBtn('reviewer:in', 1, '1')}{capBtn('reviewer:in', 2, '2')}{capBtn('reviewer:in', 3, '3')}
         <span style={{ width: 16 }} />
         <span style={{ fontSize: 11, color: T.muted }}>Aggregator max:</span>
-        {capBtn('aggregator:in', 1, '1')}
-        {capBtn('aggregator:in', 3, '3')}
-        {capBtn('aggregator:in', INFINITY, '∞')}
+        {capBtn('aggregator:in', 1, '1')}{capBtn('aggregator:in', 3, '3')}{capBtn('aggregator:in', INFINITY, '∞')}
       </div>
       <div style={{ flex: 1, position: 'relative' }}>
-        <WorldCanvas canvasRef={canvasRef}>
-          {/* Sources */}
-          <SimpleNode id="task-a" label="Task A" kind="input" defaultPosition={{ x: 40, y: 50 }}  />
+        <FlowCanvas canvasRef={canvasRef}>
+          <SimpleNode id="task-a" label="Task A" kind="input" defaultPosition={{ x: 40, y: 50  }} />
           <SimpleNode id="task-b" label="Task B" kind="input" defaultPosition={{ x: 40, y: 185 }} />
           <SimpleNode id="task-c" label="Task C" kind="input" defaultPosition={{ x: 40, y: 320 }} />
-
-          {/* Capacity nodes */}
-          <CapacityNode id="reviewer" label="Reviewer" handleId="in"
-            currentCount={reviewerCount} maxCount={caps['reviewer:in'] ?? 1}
+          <CapacityNode id="reviewer"   label="Reviewer"   handleId="in"
+            currentCount={countFor('reviewer',   'in')} maxCount={caps['reviewer:in']   ?? 1}
             defaultPosition={{ x: 270, y: 100 }} />
           <CapacityNode id="aggregator" label="Aggregator" handleId="in"
-            currentCount={aggregatorCount} maxCount={caps['aggregator:in'] ?? 3}
+            currentCount={countFor('aggregator', 'in')} maxCount={caps['aggregator:in'] ?? 3}
             defaultPosition={{ x: 270, y: 295 }} />
-
-          {/* Sink */}
           <SimpleNode id="output" label="Output" kind="output" defaultPosition={{ x: 520, y: 200 }} />
-
           <EdgeLayer />
-        </WorldCanvas>
+        </FlowCanvas>
         {toast && (
           <div style={{
             position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)',
@@ -202,11 +162,6 @@ function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
   )
 }
 
-/**
- * Handles show a live "current / max" badge. Capacity limits are configurable at runtime via toolbar buttons.
- * Reducing a limit removes excess edges immediately; increasing it allows new connections.
- * @summary live capacity badge per handle; runtime-configurable limits with excess-edge cleanup
- */
 function PortCapacityLimitsStory() {
   const { canvasRef, FlowProvider } = useFlowCanvas({ enableBuiltinPanZoom: true })
   return (
@@ -224,11 +179,11 @@ const meta = {
     docs: {
       description: {
         component: [
-          '**Why this scenario**: Many workflows need limits on how many connections a port accepts. Capacity is just a number in application state — you can change it live and the library stays unaware.',
+          '**Why this scenario**: Many workflows need limits on how many connections a port accepts. Capacity is just a number in application state — you can change it live.',
           '',
-          '**APIs used**: `useEdges()` to reactively derive per-handle edge count · `engine.getEdges()` + `engine.removeEdge()` for enforcement and cleanup · Badge UI driven by `currentCount / maxCount`',
+          '**APIs used**: `useEdges()` to reactively derive per-handle edge count · `engine.getEdges()` + `engine.removeEdge()` for enforcement and cleanup',
           '',
-          '**Try this**: 1) Connect Task A and Task B to Reviewer — the second is rejected (max 1). 2) Click "2" to raise the limit — now both fit and the badge turns green. 3) Connect all three Tasks to Aggregator (max 3). 4) Lower Aggregator to max 1 — two edges are removed automatically.',
+          '**Try this**: 1) Connect Task A and Task B to Reviewer — the second is rejected (max 1). 2) Click "2" to raise the limit. 3) Lower Aggregator to max 1 — two edges are removed automatically.',
         ].join('\n'),
       },
     },

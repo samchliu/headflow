@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { useState } from 'react'
 import { useFlowCanvas, useFlowContext } from '@headflow/react'
-import { EdgeLayer, SimpleNode, WorldCanvas, T, btn, toolbar } from './shared'
+import { FlowCanvas, EdgeLayer } from '@headflow/react-ui'
+import { SimpleNode, T, btn, toolbar } from './shared'
 
 const NODES = [
   { id: 'n1', label: 'Source', kind: 'input' as const, x: 60, y: 120 },
@@ -51,7 +52,7 @@ function Inner({
         </span>
       </div>
       <div style={{ flex: 1, position: 'relative' }}>
-        <WorldCanvas canvasRef={canvasRef}>
+        <FlowCanvas canvasRef={canvasRef}>
           {NODES.map((n) => (
             <SimpleNode
               key={n.id}
@@ -62,7 +63,7 @@ function Inner({
             />
           ))}
           <EdgeLayer />
-        </WorldCanvas>
+        </FlowCanvas>
       </div>
       {json && (
         <textarea
@@ -87,11 +88,6 @@ function Inner({
   )
 }
 
-/**
- * Demonstrates canvas save/load using `engine.serialize()` and `engine.restore()`.
- * Serialized state is plain JSON (node positions + edge topology) — easy to store in a database or URL.
- * @summary serialize canvas state to JSON and restore it, including edited values
- */
 function PersistAndRestoreStory() {
   const { canvasRef, FlowProvider } = useFlowCanvas({})
   const [json, setJson] = useState('')

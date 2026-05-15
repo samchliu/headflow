@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react'
 import { useFlowCanvas, useFlowContext, useHandle, useNode, useSelection } from '@headflow/react'
 import type { Edge } from '@headflow/react'
-import { EdgeLayer, WorldCanvas, T, btn, toolbar } from './shared'
+import { FlowCanvas, EdgeLayer } from '@headflow/react-ui'
+import { T, btn, toolbar } from './shared'
 
 const NODES = [
   { id: 'n1', label: 'Source',    kind: 'input'   as const, x: 60,  y: 120 },
@@ -12,21 +13,14 @@ const NODES = [
 ]
 
 function ReviewableNode({
-  id,
-  label,
-  kind,
-  defaultPosition,
-  isReadOnly,
+  id, label, kind, defaultPosition, isReadOnly,
 }: {
-  id: string
-  label: string
-  kind: 'input' | 'default' | 'output'
-  defaultPosition: { x: number; y: number }
-  isReadOnly: boolean
+  id: string; label: string; kind: 'input' | 'default' | 'output'
+  defaultPosition: { x: number; y: number }; isReadOnly: boolean
 }) {
   const nodeRef = useNode(id, { defaultPosition })
-  const srcRef  = useHandle(id, 'output', 'source')
-  const tgtRef  = useHandle(id, 'input',  'target')
+  const srcRef = useHandle(id, 'output', 'source')
+  const tgtRef = useHandle(id, 'input', 'target')
   const selected = useSelection().has(id)
 
   const topColor = kind === 'input' ? T.green : kind === 'output' ? T.amber : T.accent
@@ -43,25 +37,21 @@ function ReviewableNode({
       userSelect: 'none',
       color: isReadOnly ? T.muted : T.text,
       fontSize: 13, fontFamily: 'ui-monospace, monospace',
-      // pointer-events: none prevents all drag and handle interactions in read-only mode
       pointerEvents: isReadOnly ? 'none' : 'auto',
       opacity: isReadOnly ? 0.8 : 1,
       transition: 'opacity 0.25s, color 0.25s',
     }}>
-      {/* Target handle */}
       <div ref={tgtRef} data-flow-handle="target" data-flow-handle-id="input"
         style={{ position: 'absolute', left: -7, top: '50%', transform: 'translateY(-50%)',
           width: 14, height: 14, borderRadius: '50%', background: topColor,
           border: `2px solid ${T.bg}`, cursor: 'crosshair' }}
       />
-      {/* Read-only badge */}
       {isReadOnly && (
         <div style={{ position: 'absolute', top: 4, right: 7, fontSize: 9, color: T.muted, letterSpacing: 1 }}>
           R/O
         </div>
       )}
       {label}
-      {/* Source handle */}
       <div ref={srcRef} data-flow-handle="source" data-flow-handle-id="output"
         style={{ position: 'absolute', right: -7, top: '50%', transform: 'translateY(-50%)',
           width: 14, height: 14, borderRadius: '50%', background: T.green,
@@ -71,22 +61,15 @@ function ReviewableNode({
   )
 }
 
-function Inner({
-  canvasRef,
-  isReadOnly,
-}: {
-  canvasRef: (el: HTMLElement | null) => void
-  isReadOnly: boolean
+function Inner({ canvasRef, isReadOnly }: {
+  canvasRef: (el: HTMLElement | null) => void; isReadOnly: boolean
 }) {
   const { getEngine } = useFlowContext()
   const isReadOnlyRef = useRef(isReadOnly)
-
-  // Keep ref in sync so the event closure always sees the latest value
   useEffect(() => { isReadOnlyRef.current = isReadOnly }, [isReadOnly])
 
   useEffect(() => {
     const engine = getEngine()
-    // Defence-in-depth: remove any edges created while in read-only mode
     const onEdge = ({ edge }: { edge: Edge }) => {
       if (isReadOnlyRef.current) engine.removeEdge(edge.id)
     }
@@ -96,42 +79,30 @@ function Inner({
   }, [])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ flex: 1, position: 'relative' }}>
-        <WorldCanvas canvasRef={canvasRef}>
-          {NODES.map(n => (
-            <ReviewableNode
-              key={n.id}
-              id={n.id}
-              label={n.label}
-              kind={n.kind}
-              defaultPosition={{ x: n.x, y: n.y }}
-              isReadOnly={isReadOnly}
-            />
-          ))}
-          <EdgeLayer />
-        </WorldCanvas>
-        {isReadOnly && (
-          <div style={{
-            position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)',
-            background: '#1a1236', border: `1px solid #4c1d95`,
-            color: '#c4b5fd', fontSize: 11, fontFamily: 'ui-monospace, monospace',
-            padding: '4px 14px', borderRadius: 20, letterSpacing: 1,
-            pointerEvents: 'none',
-          }}>
-            Review mode — read-only
-          </div>
-        )}
-      </div>
+    <div style={{ flex: 1, position: 'relative' }}>
+      <FlowCanvas canvasRef={canvasRef}>
+        {NODES.map((n) => (
+          <ReviewableNode
+            key={n.id} id={n.id} label={n.label} kind={n.kind}
+            defaultPosition={{ x: n.x, y: n.y }} isReadOnly={isReadOnly}
+          />
+        ))}
+        <EdgeLayer />
+      </FlowCanvas>
+      {isReadOnly && (
+        <div style={{
+          position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)',
+          background: '#1a1236', border: `1px solid #4c1d95`,
+          color: '#c4b5fd', fontSize: 11, fontFamily: 'ui-monospace, monospace',
+          padding: '4px 14px', borderRadius: 20, letterSpacing: 1, pointerEvents: 'none',
+        }}>
+          Review mode — read-only
+        </div>
+      )}
     </div>
   )
 }
 
-/**
- * Switches between Edit mode (full drag + connect) and Review mode (read-only) by toggling a single state value.
- * In review mode `pointer-events: none` on nodes blocks dragging; an `edgeCreated` guard removes any edges.
- * @summary edit/review mode toggle: pointer-events:none freezes nodes; edgeCreated guard blocks new edges
- */
 function ReadOnlyReviewModeStory() {
   const [isReadOnly, setIsReadOnly] = useState(false)
   const { canvasRef, FlowProvider } = useFlowCanvas({ enableBuiltinPanZoom: true })
@@ -141,7 +112,7 @@ function ReadOnlyReviewModeStory() {
       <div style={toolbar}>
         <button
           type="button"
-          onClick={() => setIsReadOnly(v => !v)}
+          onClick={() => setIsReadOnly((v) => !v)}
           style={{
             ...btn,
             background: isReadOnly ? '#1a1236' : '#14290e',

@@ -1,44 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react'
-import { useEdges, useFlowCanvas, useFlowContext, useHandle, useNode, useSelection } from '@headflow/react'
+import { useEdges, useFlowCanvas, useFlowContext, useHandle, useNode, useSelection, useDraftEdge } from '@headflow/react'
 import type { Edge } from '@headflow/react'
+import { FlowCanvas } from '@headflow/react-ui'
 import { bezierPath } from '@headflow/renderer'
-import { WorldCanvas, T, toolbar } from './shared'
+import { T, toolbar } from './shared'
 
 const TYPE_COLOR = { event: '#a855f7', data: '#3b82f6' } as const
 type PortType = keyof typeof TYPE_COLOR
 
-// Maps 'nodeId:handleId' → declared port type
 const PORT_TYPES: Record<string, PortType> = {
-  'emitter:emit':        'event',
-  'datafeed:out':        'data',
-  'processor:trigger':   'event',
-  'processor:data-in':   'data',
-  'processor:result':    'data',
-  'sink:data-in':        'data',
-  'sink:log-in':         'data',
+  'emitter:emit':       'event',
+  'datafeed:out':       'data',
+  'processor:trigger':  'event',
+  'processor:data-in':  'data',
+  'processor:result':   'data',
+  'sink:data-in':       'data',
+  'sink:log-in':        'data',
 }
 
 function TypedEdgeLayer() {
-  const { getEngine } = useFlowContext()
   const edges = useEdges()
-  const [draft, setDraft] = useState<{ sx: number; sy: number; cx: number; cy: number } | null>(null)
-
-  useEffect(() => {
-    const engine = getEngine()
-    const onMove = ({ sourcePt: s, currentPt: c }: { sourceHandleId: string; sourceNodeId: string; sourcePt: { x: number; y: number }; currentPt: { x: number; y: number } }) =>
-      setDraft({ sx: s.x, sy: s.y, cx: c.x, cy: c.y })
-    const clear = () => setDraft(null)
-    engine.on('draftEdgeMove', onMove)
-    engine.on('edgeCreateCancelled', clear)
-    engine.on('edgeCreated', clear)
-    return () => {
-      engine.off('draftEdgeMove', onMove)
-      engine.off('edgeCreateCancelled', clear)
-      engine.off('edgeCreated', clear)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const draft = useDraftEdge()
 
   return (
     <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible' }}>
@@ -48,14 +31,13 @@ function TypedEdgeLayer() {
         return <path key={e.id} d={bezierPath(e.source.pt, e.target.pt)} fill="none" stroke={color} strokeWidth={1.5} />
       })}
       {draft && (
-        <path d={bezierPath({ x: draft.sx, y: draft.sy }, { x: draft.cx, y: draft.cy })}
+        <path d={bezierPath(draft.sourcePt, draft.currentPt)}
           fill="none" stroke={T.accent} strokeWidth={1.5} strokeDasharray="5 4" />
       )}
     </svg>
   )
 }
 
-// Single-port source node
 function SourceNode({ id, label, portId, portType, defaultPosition }: {
   id: string; label: string; portId: string; portType: PortType
   defaultPosition: { x: number; y: number }
@@ -85,10 +67,9 @@ function SourceNode({ id, label, portId, portType, defaultPosition }: {
   )
 }
 
-// Processor: event trigger (left-top) + data input (left-bottom) → data result (right)
 function ProcessorNode({ defaultPosition }: { defaultPosition: { x: number; y: number } }) {
   const ID = 'processor'
-  const nodeRef = useNode(ID, { defaultPosition })
+  const nodeRef   = useNode(ID, { defaultPosition })
   const trigRef   = useHandle(ID, 'trigger', 'target')
   const dataInRef = useHandle(ID, 'data-in', 'target')
   const resultRef = useHandle(ID, 'result',  'source')
@@ -102,44 +83,32 @@ function ProcessorNode({ defaultPosition }: { defaultPosition: { x: number; y: n
       borderRadius: 8, cursor: 'grab', userSelect: 'none',
       color: T.text, fontFamily: 'ui-monospace, monospace',
     }}>
-      <div style={{ padding: '7px 14px', borderBottom: `1px solid ${T.border}`, fontSize: 11, color: T.muted }}>
-        Processor
-      </div>
-
-      {/* trigger — event */}
-      <div ref={trigRef} data-flow-handle="target" data-flow-handle-id="trigger"
-        style={{ position: 'absolute', left: -7, top: '38%', transform: 'translateY(-50%)',
-          width: 14, height: 14, borderRadius: '50%', background: TYPE_COLOR.event,
-          border: `2px solid ${T.bg}`, cursor: 'crosshair' }}
-      />
-      <div style={{ position: 'absolute', left: 14, top: '38%', transform: 'translateY(-50%)', fontSize: 10, color: TYPE_COLOR.event }}>
-        trigger
-      </div>
-
-      {/* data-in — data */}
-      <div ref={dataInRef} data-flow-handle="target" data-flow-handle-id="data-in"
-        style={{ position: 'absolute', left: -7, top: '72%', transform: 'translateY(-50%)',
-          width: 14, height: 14, borderRadius: '50%', background: TYPE_COLOR.data,
-          border: `2px solid ${T.bg}`, cursor: 'crosshair' }}
-      />
-      <div style={{ position: 'absolute', left: 14, top: '72%', transform: 'translateY(-50%)', fontSize: 10, color: TYPE_COLOR.data }}>
-        data-in
-      </div>
-
-      {/* result — data (source) */}
+      <div style={{ padding: '7px 14px', borderBottom: `1px solid ${T.border}`, fontSize: 11, color: T.muted }}>Processor</div>
+      {([
+        { ref: trigRef,   id: 'trigger', label: 'trigger', color: TYPE_COLOR.event, top: '38%' },
+        { ref: dataInRef, id: 'data-in', label: 'data-in', color: TYPE_COLOR.data,  top: '72%' },
+      ] as const).map((h) => (
+        <div key={h.id}>
+          <div ref={h.ref} data-flow-handle="target" data-flow-handle-id={h.id}
+            style={{ position: 'absolute', left: -7, top: h.top, transform: 'translateY(-50%)',
+              width: 14, height: 14, borderRadius: '50%', background: h.color,
+              border: `2px solid ${T.bg}`, cursor: 'crosshair' }}
+          />
+          <div style={{ position: 'absolute', left: 14, top: h.top, transform: 'translateY(-50%)', fontSize: 10, color: h.color }}>
+            {h.label}
+          </div>
+        </div>
+      ))}
       <div ref={resultRef} data-flow-handle="source" data-flow-handle-id="result"
         style={{ position: 'absolute', right: -7, top: '50%', transform: 'translateY(-50%)',
           width: 14, height: 14, borderRadius: '50%', background: TYPE_COLOR.data,
           border: `2px solid ${T.bg}`, cursor: 'crosshair' }}
       />
-      <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: TYPE_COLOR.data }}>
-        result
-      </div>
+      <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: TYPE_COLOR.data }}>result</div>
     </div>
   )
 }
 
-// Sink: two data target handles
 function SinkNode({ defaultPosition }: { defaultPosition: { x: number; y: number } }) {
   const ID = 'sink'
   const nodeRef = useNode(ID, { defaultPosition })
@@ -157,24 +126,19 @@ function SinkNode({ defaultPosition }: { defaultPosition: { x: number; y: number
       color: T.text, fontFamily: 'ui-monospace, monospace',
     }}>
       <div style={{ padding: '7px 12px', borderBottom: `1px solid ${T.border}`, fontSize: 11, color: T.muted }}>Sink</div>
-
-      <div ref={dataRef} data-flow-handle="target" data-flow-handle-id="data-in"
-        style={{ position: 'absolute', left: -7, top: '42%', transform: 'translateY(-50%)',
-          width: 14, height: 14, borderRadius: '50%', background: TYPE_COLOR.data,
-          border: `2px solid ${T.bg}`, cursor: 'crosshair' }}
-      />
-      <div style={{ position: 'absolute', left: 14, top: '42%', transform: 'translateY(-50%)', fontSize: 10, color: TYPE_COLOR.data }}>
-        data-in
-      </div>
-
-      <div ref={logRef} data-flow-handle="target" data-flow-handle-id="log-in"
-        style={{ position: 'absolute', left: -7, top: '76%', transform: 'translateY(-50%)',
-          width: 14, height: 14, borderRadius: '50%', background: TYPE_COLOR.data,
-          border: `2px solid ${T.bg}`, cursor: 'crosshair' }}
-      />
-      <div style={{ position: 'absolute', left: 14, top: '76%', transform: 'translateY(-50%)', fontSize: 10, color: TYPE_COLOR.data }}>
-        log-in
-      </div>
+      {([
+        { ref: dataRef, id: 'data-in', top: '42%' },
+        { ref: logRef,  id: 'log-in',  top: '76%' },
+      ] as const).map((h) => (
+        <div key={h.id}>
+          <div ref={h.ref} data-flow-handle="target" data-flow-handle-id={h.id}
+            style={{ position: 'absolute', left: -7, top: h.top, transform: 'translateY(-50%)',
+              width: 14, height: 14, borderRadius: '50%', background: TYPE_COLOR.data,
+              border: `2px solid ${T.bg}`, cursor: 'crosshair' }}
+          />
+          <div style={{ position: 'absolute', left: 14, top: h.top, transform: 'translateY(-50%)', fontSize: 10, color: TYPE_COLOR.data }}>{h.id}</div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -211,17 +175,17 @@ function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
         <span style={{ fontSize: 11, color: T.muted }}>
           <span style={{ color: TYPE_COLOR.event }}>■</span> Event &nbsp;
           <span style={{ color: TYPE_COLOR.data }}>■</span> Data &nbsp;—&nbsp;
-          each handle declares a type; cross-type connections are blocked at the port level
+          cross-type connections are blocked at the port level
         </span>
       </div>
       <div style={{ flex: 1, position: 'relative' }}>
-        <WorldCanvas canvasRef={canvasRef}>
-          <SourceNode id="emitter"  label="Event Emitter" portId="emit" portType="event" defaultPosition={{ x: 40, y: 70 }} />
-          <SourceNode id="datafeed" label="Data Feed"     portId="out"  portType="data"  defaultPosition={{ x: 40, y: 230 }} />
+        <FlowCanvas canvasRef={canvasRef}>
+          <SourceNode id="emitter"  label="Event Emitter" portId="emit" portType="event" defaultPosition={{ x: 40,  y: 70  }} />
+          <SourceNode id="datafeed" label="Data Feed"     portId="out"  portType="data"  defaultPosition={{ x: 40,  y: 230 }} />
           <ProcessorNode defaultPosition={{ x: 270, y: 110 }} />
           <SinkNode      defaultPosition={{ x: 540, y: 145 }} />
           <TypedEdgeLayer />
-        </WorldCanvas>
+        </FlowCanvas>
         {toast && (
           <div style={{
             position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)',
@@ -237,11 +201,6 @@ function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
   )
 }
 
-/**
- * Each handle declares a port type (event or data). Connections between mismatched types are blocked.
- * This is more granular than node-level typing — different handles on the same node can have different types.
- * @summary handle-level port typing; cross-type connections removed with a toast explanation
- */
 function TypeSafePortsStory() {
   const { canvasRef, FlowProvider } = useFlowCanvas({ enableBuiltinPanZoom: true })
   return (
@@ -259,11 +218,11 @@ const meta = {
     docs: {
       description: {
         component: [
-          '**Why this scenario**: Unlike node-level typing (whole node is one type), port-level typing lets a single node accept an event trigger AND a data input — each port is independently typed, like a function signature.',
+          '**Why this scenario**: Port-level typing lets a single node accept an event trigger AND a data input — each port is independently typed.',
           '',
-          '**APIs used**: `engine.on("edgeCreated")` + `engine.removeEdge(id)` · A `PORT_TYPES` lookup map keyed by `"nodeId:handleId"` · Custom edge layer colors edges by source port type',
+          '**APIs used**: `engine.on("edgeCreated")` + `engine.removeEdge(id)` · `PORT_TYPES` lookup map · `useDraftEdge()` for draft edge preview',
           '',
-          '**Try this**: 1) Connect Event Emitter → Processor trigger (purple→purple) — succeeds. 2) Try Event Emitter → Processor data-in (purple→blue) — blocked with a type-mismatch toast. 3) Connect Data Feed → Processor data-in, then Processor result → Sink.',
+          '**Try this**: 1) Connect Event Emitter → Processor trigger (purple→purple) — succeeds. 2) Try Event Emitter → Processor data-in (purple→blue) — blocked with a type-mismatch toast.',
         ].join('\n'),
       },
     },
