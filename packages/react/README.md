@@ -12,9 +12,12 @@ React bindings for **[HeadFlow](https://github.com/samchliu/headflow)** — a he
 - **`useNode` / `useHandle`** — Attach draggable nodes and source/target handles by ref.
 - **`useEdges`** — Reactive edge list with screen-space endpoints for your SVG/canvas layer.
 - **`useSelection` / `useLasso`** — Selection state and lasso overlay helpers.
+- **`useDraftEdge`** — Tracks the in-progress edge while the user drags from a source handle; clears on drop or cancel.
+- **`useUndoRedo`** — Exposes `undo`, `redo`, and reactive `canUndo`/`canRedo` flags; stays in sync automatically.
+- **`useViewport`** — Returns the current canvas transform (`scale`, `translateX`, `translateY`); re-renders on every pan/zoom.
 - **`useFlowContext`** — Access the underlying `FlowEngine` when you need imperative APIs.
 
-Types such as `Edge`, `Point`, `SerializedGraph`, and `FlowEngine` are **re-exported** from `@headflow/core` for convenience.
+Types such as `Edge`, `Point`, `CanvasTransform`, `SerializedGraph`, and `FlowEngine` are **re-exported** from `@headflow/core` for convenience.
 
 ---
 
@@ -100,6 +103,7 @@ Render your own nodes (cards, ports, icons); HeadFlow only needs refs and the at
 | Package | Use case |
 |---------|----------|
 | [`@headflow/core`](https://www.npmjs.com/package/@headflow/core) | Vanilla / custom framework integration |
+| [`@headflow/react-ui`](https://www.npmjs.com/package/@headflow/react-ui) | Pre-styled nodes, handles, and edge layer for React |
 | [`@headflow/solid`](https://www.npmjs.com/package/@headflow/solid) | SolidJS apps |
 | [`@headflow/renderer`](https://www.npmjs.com/package/@headflow/renderer) | Bezier paths & lasso math for SVG |
 
