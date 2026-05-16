@@ -7,12 +7,13 @@
 ## Monorepo layout
 
 ```
-packages/core/     @headflow/core   — pure TS interaction engine (no framework deps)
-packages/solid/    @headflow/solid  — SolidJS adapter (reactive primitives)
-packages/react/    @headflow/react  — React adapter (hooks)
-packages/renderer/ @headflow/renderer — renderer math utilities (bezier/lasso normalize)
-apps/stories/      Storybook stories (renderer utilities + React canvas)
-apps/stress-test/  Playwright E2E perf benchmark (100 nodes)
+packages/core/      @headflow/core     — pure TS interaction engine (no framework deps)
+packages/react/     @headflow/react    — React adapter (hooks)
+packages/react-ui/  @headflow/react-ui — pre-styled React components (BaseNode, Handle, FlowCanvas, EdgeLayer, LassoRect, tokens)
+packages/solid/     @headflow/solid    — SolidJS adapter (reactive primitives)
+packages/renderer/  @headflow/renderer — renderer math utilities (bezier/lasso normalize)
+apps/stories/       Storybook recipe demos showcasing @headflow/react + @headflow/react-ui
+apps/stress-test/   Playwright E2E perf benchmark (100 nodes)
 ```
 
 Build system: pnpm workspaces + Turborepo. Version management: Changesets.
@@ -93,6 +94,17 @@ packages/react/src/
   useHandle.ts      callback ref with register/unregister
   useEdges.ts       useSyncExternalStore — re-renders on edge topology changes only
   useSelection.ts   useSyncExternalStore — useSelection() + useLasso()
+  useDraftEdge.ts   useSyncExternalStore — tracks in-progress edge drag (draftEdgeMove / edgeCreated / edgeCreateCancelled)
+  useUndoRedo.ts    exposes undo/redo + canUndo/canRedo, synced to engine history events
+  useViewport.ts    useSyncExternalStore — current CanvasTransform, re-renders on viewportChanged
+
+packages/react-ui/src/
+  FlowCanvas.tsx    full-size canvas container with dot-grid bg + viewport transform applied to children
+  BaseNode.tsx      card-style node shell (accent top border, selection ring) — wraps useNode
+  Handle.tsx        circular handle dot at any edge position — wraps useHandle
+  EdgeLayer.tsx     SVG overlay rendering committed edges as bezier curves — wraps useEdges + bezierPath
+  LassoRect.tsx     animated selection rectangle overlay — wraps useLasso
+  tokens.ts         V / TOKEN_DEFAULTS — design token constants (exported as `tokens`)
 ```
 
 ## Build + test commands
@@ -122,11 +134,12 @@ React adapter, Selection system (select/deselect/clearSelection/moveSelectionBy)
 - **Multi-select drag fix**: `drag/node.ts` now snapshots all selected nodes' positions at drag start (`selectionSnapshot`) so group drag is always relative to each node's individual start position.
 - **Undo/Redo**: Command pattern in `history.ts` (`createHistoryManager`). Node drag, `moveSelectionBy`, `removeEdge`, and edge creation via drag are all recorded. `engine.undo()`, `engine.redo()`, `engine.canUndo()`, `engine.canRedo()`.
 
-### Phase 4 (next)
-- **`@headflow/renderer`**: Pure-math utility package — `bezierPath(source, target)` → SVG path string, `normalizeLassoRect(rect)` → `{ x, y, w, h }`. Framework-agnostic. Resolves `bezier.ts` duplication in both demos.
-- **`apps/stories/`**: Storybook (`@storybook/react-vite`) for renderer utility stories + full React canvas story.
-- **Demo redesign** (design review decisions — see below): Unified dark theme, Geist Sans/Mono font, floating HUD for Phase 3 controls.
-- **Demo feature parity**: SolidJS demo brought to feature parity with React demo (draft edge, selection highlight, lasso overlay).
+### Phase 4 ✅ (shipped)
+- **`@headflow/renderer`**: Pure-math utility package — `bezierPath(source, target)` → SVG path string, `normalizeLassoRect(rect)` → `{ x, y, w, h }`. Framework-agnostic.
+- **`@headflow/react-ui`**: Pre-styled component package — `BaseNode`, `Handle`, `FlowCanvas`, `EdgeLayer`, `LassoRect`, `tokens`. Built on top of `@headflow/react`.
+- **Higher-level React hooks**: `useDraftEdge`, `useUndoRedo`, `useViewport` added to `@headflow/react`.
+- **`apps/stories/`**: Storybook (`@storybook/react-vite`) with 10+ recipe demos covering grouped workflow, port capacity limits, undo/redo, pan/zoom, persist/restore, readonly mode, conditional branching, and more. Deployed to GitHub Pages.
+- **Dark theme design system**: Unified token set (see Demo Design System section below). Applied across all story recipes.
 
 ### Phase 5 (future)
 - **Performance**: Replace O(n) lasso hit test with quadtree for >2000 nodes

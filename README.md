@@ -9,13 +9,45 @@ HeadFlow gives you drag, edge creation, lasso selection, and coordinate transfor
 | Package | Description |
 |---------|-------------|
 | [`@headflow/core`](./packages/core) | Framework-agnostic engine — TypeScript, no dependencies except `mitt` |
+| [`@headflow/react`](./packages/react) | React adapter — hooks (`useNode`, `useHandle`, `useEdges`, `useSelection`, `useLasso`, `useDraftEdge`, `useUndoRedo`, `useViewport`) |
+| [`@headflow/react-ui`](./packages/react-ui) | Pre-styled React components — `BaseNode`, `Handle`, `FlowCanvas`, `EdgeLayer`, `LassoRect`, `tokens` |
 | [`@headflow/solid`](./packages/solid) | SolidJS adapter — reactive primitives (`createNode`, `createHandle`, `createEdges`, `createSelection`) |
-| [`@headflow/react`](./packages/react) | React adapter — hooks (`useNode`, `useHandle`, `useEdges`, `useSelection`, `useLasso`) |
 | [`@headflow/renderer`](./packages/renderer) | Renderer math utilities (`bezierPath`, `normalizeLassoRect`) |
 
 ## Quick start
 
-### React
+### React — with `@headflow/react-ui` (recommended)
+
+```tsx
+import { useFlowCanvas } from '@headflow/react'
+import { FlowCanvas, BaseNode, Handle, EdgeLayer } from '@headflow/react-ui'
+
+function App() {
+  const { canvasRef, FlowProvider } = useFlowCanvas({ enableBuiltinPanZoom: true })
+
+  return (
+    <FlowProvider>
+      <FlowCanvas canvasRef={canvasRef}>
+        <MyNode id="n1" defaultPosition={{ x: 60, y: 100 }} />
+        <MyNode id="n2" defaultPosition={{ x: 300, y: 100 }} />
+        <EdgeLayer />
+      </FlowCanvas>
+    </FlowProvider>
+  )
+}
+
+function MyNode({ id, defaultPosition }) {
+  return (
+    <BaseNode nodeId={id} defaultPosition={defaultPosition}>
+      <Handle nodeId={id} handleId="in"  type="target" position="left" />
+      My Node
+      <Handle nodeId={id} handleId="out" type="source" position="right" />
+    </BaseNode>
+  )
+}
+```
+
+### React — hooks only (full control)
 
 ```tsx
 import { useFlowCanvas, useNode, useHandle, useEdges } from '@headflow/react'
@@ -214,11 +246,12 @@ pnpm --filter @headflow/stress-test test:perf
 .
 ├── packages/
 │   ├── core/        @headflow/core     — interaction engine
+│   ├── react/       @headflow/react    — React hooks
+│   ├── react-ui/    @headflow/react-ui — pre-styled React components
 │   ├── solid/       @headflow/solid    — SolidJS adapter
-│   ├── react/       @headflow/react    — React adapter
 │   └── renderer/    @headflow/renderer — path/overlay math utilities
 └── apps/
-    ├── stories/     Storybook stories for renderer and React canvas
+    ├── stories/     Storybook recipe demos (React)
     └── stress-test/ 100-node Playwright perf benchmark
 ```
 
