@@ -4,7 +4,7 @@ import { useFlowCanvas, useFlowContext, useHandle, useNode, useSelection } from 
 import { FlowCanvas, EdgeLayer } from '@headflow/react-ui'
 import { SimpleNode, T, toolbar } from './shared'
 
-const GRP_DEFAULT = { x: 160, y: 80 }
+const GRP_DEFAULT = { x: 210, y: 80 }
 const GRP_W = 250
 const GRP_H = 220
 const CHILDREN_DEFAULT: Record<string, { x: number; y: number }> = {
@@ -123,8 +123,8 @@ function Inner({ canvasRef }: { canvasRef: (el: HTMLElement | null) => void }) {
           <GroupNode defaultPosition={GRP_DEFAULT} />
           <SimpleNode id="step1" label="Step 1: Extract" kind="default" defaultPosition={CHILDREN_DEFAULT.step1} />
           <SimpleNode id="step2" label="Step 2: Filter" kind="default" defaultPosition={CHILDREN_DEFAULT.step2} />
-          <SimpleNode id="ext-in" label="Ext Input" kind="input" defaultPosition={{ x: 20, y: 200 }} />
-          <SimpleNode id="ext-out" label="Ext Output" kind="output" defaultPosition={{ x: 490, y: 200 }} />
+          <SimpleNode id="ext-in" label="Ext Input" kind="input" defaultPosition={{ x: 20, y: 170 }} />
+          <SimpleNode id="ext-out" label="Ext Output" kind="output" defaultPosition={{ x: 540, y: 170 }} />
           <EdgeLayer />
         </FlowCanvas>
       </div>
