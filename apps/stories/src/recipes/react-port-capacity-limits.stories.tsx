@@ -32,7 +32,7 @@ function CapacityNode({ id, label, handleId, currentCount, maxCount, defaultPosi
       borderRadius: 8, cursor: 'grab', userSelect: 'none',
       color: T.text, fontFamily: 'ui-monospace, monospace',
     }}>
-      <div ref={inRef} data-flow-handle="target" data-flow-handle-id={handleId}
+      <div ref={inRef} data-flow-handle="target" data-flow-handle-id={handleId} data-flow-handle-multiple
         style={{ position: 'absolute', left: -7, top: '50%', transform: 'translateY(-50%)',
           width: 14, height: 14, borderRadius: '50%',
           background: full ? '#ef4444' : T.accent,

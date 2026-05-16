@@ -79,7 +79,7 @@ function Inner({ canvasRef, isReadOnly }: {
   }, [])
 
   return (
-    <div style={{ flex: 1, position: 'relative' }}>
+    <div style={{ height: '100%', position: 'relative' }}>
       <FlowCanvas canvasRef={canvasRef}>
         {NODES.map((n) => (
           <ReviewableNode
