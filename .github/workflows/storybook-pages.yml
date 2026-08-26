@@ -41,7 +41,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build workspace dependencies for stories
-        run: pnpm --filter @headflow/core build && pnpm --filter @headflow/react build && pnpm --filter @headflow/renderer build
+        run: pnpm --filter "@headflow/stories^..." build
 
       - name: Build Storybook
         env:
