@@ -74,7 +74,21 @@ export interface FitViewOptions {
 
 export type FlowEvents = {
   nodeAdded: { nodeId: string }
+  /** Emitted once DOM/engine bookkeeping for this node id is fully gone (see unregisterNode). */
   nodeRemoved: { nodeId: string }
+  /**
+   * Emitted by `removeNode()`/`deleteSelection()` to ask the consuming app to
+   * remove this node id from ITS OWN render-list state, so React unmounts it.
+   * Distinct from `nodeRemoved` — core cannot itself unmount app-rendered JSX.
+   */
+  nodeRemoveRequested: { nodeId: string }
+  /**
+   * Emitted when a node removal is undone, asking the consuming app to
+   * re-insert the node into its own render-list state. Core only provides the
+   * node's last-known canvas position as a convenience — the app is
+   * responsible for retaining the rest of the node's data (props/children).
+   */
+  nodeRestoreRequested: { nodeId: string; position: Point }
   /** Emitted during drag (live) and on pointerup (final) */
   nodeMoved: { nodeId: string; position: Point }
   edgeCreated: { edge: Edge }
@@ -124,6 +138,19 @@ export interface FlowEngine {
   setNodePosition(nodeId: string, position: Point): void
   /** Remove an edge by id. */
   removeEdge(edgeId: string): void
+  /**
+   * Remove a node: cascades deletion of its connected edges, cleans up
+   * selection, and records undo — then emits `nodeRemoveRequested` so the
+   * consuming app can unmount its JSX. Does NOT touch internal DOM tracking
+   * directly; that still happens via the existing `unregisterNode` path once
+   * the app's unmount completes. See `nodeRemoveRequested`/`nodeRestoreRequested`.
+   */
+  removeNode(nodeId: string): void
+  /**
+   * Remove everything currently selected (nodes and edges) as a single
+   * undoable action — one `undo()` call restores the whole batch.
+   */
+  deleteSelection(): void
   /** Return a snapshot of all current edges (with live pt coordinates). */
   getEdges(): Edge[]
   /** Serialize graph state (positions + edge topology, no pts). */

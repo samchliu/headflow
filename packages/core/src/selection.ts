@@ -1,32 +1,38 @@
-import type { FlowEvents, NodeEntry, Point } from './types'
+import type { Edge, FlowEvents, NodeEntry, Point } from './types'
 import type { Emitter } from 'mitt'
 
 /**
- * Manages which nodes are currently selected.
+ * Manages which nodes AND edges are currently selected (a single unified id set).
  * Lives entirely in core so both adapters share the same selection state.
- * All mutating methods are O(1) except selectNodes / hitTest which are O(n).
+ * All mutating methods are O(1) except selectMany / hitTest which are O(n).
  */
 export function createSelectionManager(
   nodeMap: Map<string, NodeEntry>,
+  edgeMap: Map<string, Edge>,
   emitter: Emitter<FlowEvents>,
 ) {
   const selectedSet = new Set<string>()
+
+  function isSelectable(id: string): boolean {
+    return nodeMap.has(id) || edgeMap.has(id)
+  }
 
   function emitChange(): void {
     emitter.emit('selectionChanged', { selected: new Set(selectedSet) })
   }
 
   const manager = {
-    select(nodeId: string): void {
-      if (!nodeMap.has(nodeId) || selectedSet.has(nodeId)) return
-      selectedSet.add(nodeId)
+    select(id: string): void {
+      if (!isSelectable(id) || selectedSet.has(id)) return
+      selectedSet.add(id)
       emitChange()
     },
 
-    selectNodes(nodeIds: string[]): void {
+    /** Add multiple node/edge ids to the selection (never clears). */
+    selectMany(ids: string[]): void {
       let changed = false
-      for (const id of nodeIds) {
-        if (nodeMap.has(id) && !selectedSet.has(id)) {
+      for (const id of ids) {
+        if (isSelectable(id) && !selectedSet.has(id)) {
           selectedSet.add(id)
           changed = true
         }
@@ -34,8 +40,17 @@ export function createSelectionManager(
       if (changed) emitChange()
     },
 
-    deselect(nodeId: string): void {
-      if (!selectedSet.delete(nodeId)) return
+    /** Toggle a single node/edge id: deselect if already selected, else select. */
+    toggle(id: string): void {
+      if (selectedSet.has(id)) {
+        manager.deselect(id)
+      } else {
+        manager.select(id)
+      }
+    },
+
+    deselect(id: string): void {
+      if (!selectedSet.delete(id)) return
       emitChange()
     },
 
@@ -78,8 +93,13 @@ export function createSelectionManager(
       if (selectedSet.delete(nodeId)) emitChange()
     },
 
-    has(nodeId: string): boolean {
-      return selectedSet.has(nodeId)
+    /** Called by engine when an edge is removed — keeps selection consistent. */
+    onEdgeRemoved(edgeId: string): void {
+      if (selectedSet.delete(edgeId)) emitChange()
+    },
+
+    has(id: string): boolean {
+      return selectedSet.has(id)
     },
 
     size(): number {

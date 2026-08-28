@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { hitTestNodes } from './lasso'
-import type { NodeEntry } from '../types'
+import { hitTestEdges, hitTestNodes } from './lasso'
+import type { Edge, NodeEntry, Point } from '../types'
 
 function makeNodeMap(entries: Array<[string, number, number]>): Map<string, NodeEntry> {
   const m = new Map<string, NodeEntry>()
@@ -66,6 +66,56 @@ describe('hitTestNodes', () => {
   it('returns empty for empty nodeMap', () => {
     const nodes = new Map<string, NodeEntry>()
     const result = hitTestNodes(nodes, { x: 0, y: 0, w: 500, h: 500 })
+    expect(result).toHaveLength(0)
+  })
+})
+
+function makeEdgeMap(entries: Array<[string, Point, Point]>): Map<string, Edge> {
+  const m = new Map<string, Edge>()
+  for (const [id, sourcePt, targetPt] of entries) {
+    m.set(id, {
+      id,
+      source: { nodeId: 'a', handleId: 'h', pt: sourcePt },
+      target: { nodeId: 'b', handleId: 'h', pt: targetPt },
+    })
+  }
+  return m
+}
+
+describe('hitTestEdges', () => {
+  it('hits an edge fully inside the rect', () => {
+    const edges = makeEdgeMap([['e1', { x: 20, y: 20 }, { x: 80, y: 80 }]])
+    const result = hitTestEdges(edges, { x: 0, y: 0, w: 100, h: 100 })
+    expect(result).toContain('e1')
+  })
+
+  it('hits an edge with only one endpoint inside the rect', () => {
+    const edges = makeEdgeMap([['e1', { x: 50, y: 50 }, { x: 500, y: 500 }]])
+    const result = hitTestEdges(edges, { x: 0, y: 0, w: 100, h: 100 })
+    expect(result).toContain('e1')
+  })
+
+  it('hits an edge that crosses the rect boundary with both endpoints outside', () => {
+    const edges = makeEdgeMap([['e1', { x: -50, y: 50 }, { x: 150, y: 50 }]])
+    const result = hitTestEdges(edges, { x: 0, y: 0, w: 100, h: 100 })
+    expect(result).toContain('e1')
+  })
+
+  it('does not hit an edge fully outside the rect', () => {
+    const edges = makeEdgeMap([['e1', { x: 200, y: 200 }, { x: 300, y: 300 }]])
+    const result = hitTestEdges(edges, { x: 0, y: 0, w: 100, h: 100 })
+    expect(result).not.toContain('e1')
+  })
+
+  it('handles negative width/height (drag up-left)', () => {
+    const edges = makeEdgeMap([['e1', { x: 20, y: 20 }, { x: 80, y: 80 }]])
+    const result = hitTestEdges(edges, { x: 200, y: 200, w: -150, h: -150 })
+    expect(result).toContain('e1')
+  })
+
+  it('returns empty for empty edgeMap', () => {
+    const edges = new Map<string, Edge>()
+    const result = hitTestEdges(edges, { x: 0, y: 0, w: 500, h: 500 })
     expect(result).toHaveLength(0)
   })
 })

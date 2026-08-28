@@ -33,14 +33,22 @@ export function setupDrag(ctx: DragContext): () => void {
       if (state) {
         dragState = state
         ctx.container.setPointerCapture(e.pointerId)
-
-        // If clicked node is NOT in selection, replace selection with just this node
-        if (!ctx.selection.has(state.nodeId)) {
-          ctx.selection.clearSelection()
-          ctx.selection.select(state.nodeId)
-        }
+        applyClickSelect(ctx, state.nodeId, e.shiftKey)
         return
       }
+    }
+
+    // Priority 2.5: edge element (click-select only, edges aren't draggable)
+    const edgeEl = target.closest('[data-flow-edge]') as HTMLElement | null
+    if (edgeEl) {
+      // Any click landing on an edge/label element is consumed here — even a
+      // stale one (removed from edgeMap but not yet unmounted) — so it never
+      // falls through to Priority 3 and unexpectedly clears the selection.
+      const edgeId = edgeEl.getAttribute('data-flow-edge')
+      if (edgeId && ctx.edgeMap.has(edgeId)) {
+        applyClickSelect(ctx, edgeId, e.shiftKey)
+      }
+      return
     }
 
     // Priority 3: empty canvas space — start lasso
@@ -51,6 +59,21 @@ export function setupDrag(ctx: DragContext): () => void {
         dragState = startLassoDrag(e, ctx.container)
         ctx.container.setPointerCapture(e.pointerId)
       }
+    }
+  }
+
+  /**
+   * Shared click-select semantics for both node and edge clicks:
+   * shift+click toggles the item in/out of the selection; a plain click
+   * replaces the selection with just this item, unless it's already part of
+   * a multi-selection (preserves group-drag when clicking an already-selected node).
+   */
+  function applyClickSelect(ctx: DragContext, id: string, shiftKey: boolean): void {
+    if (shiftKey) {
+      ctx.selection.toggle(id)
+    } else if (!ctx.selection.has(id)) {
+      ctx.selection.clearSelection()
+      ctx.selection.select(id)
     }
   }
 

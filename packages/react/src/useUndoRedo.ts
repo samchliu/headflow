@@ -36,11 +36,15 @@ export function useUndoRedo(): UseUndoRedoResult {
     engine.on('nodeMoved', sync)
     engine.on('edgeCreated', sync)
     engine.on('edgeDeleted', sync)
+    engine.on('nodeRemoveRequested', sync)
+    engine.on('nodeRestoreRequested', sync)
 
     return () => {
       engine.off('nodeMoved', sync)
       engine.off('edgeCreated', sync)
       engine.off('edgeDeleted', sync)
+      engine.off('nodeRemoveRequested', sync)
+      engine.off('nodeRestoreRequested', sync)
     }
   // getEngine is stable
   // eslint-disable-next-line react-hooks/exhaustive-deps

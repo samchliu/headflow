@@ -7,11 +7,13 @@ export { useSelection, useLasso } from './useSelection'
 export { useViewport } from './useViewport'
 export { useDraftEdge } from './useDraftEdge'
 export { useUndoRedo } from './useUndoRedo'
+export { useNodeRemoval } from './useNodeRemoval'
 
 export type { UseFlowCanvasOptions, UseFlowCanvasResult } from './useFlowCanvas'
 export type { UseNodeOptions } from './useNode'
 export type { DraftEdge } from './useDraftEdge'
 export type { UseUndoRedoResult } from './useUndoRedo'
+export type { UseNodeRemovalHandlers } from './useNodeRemoval'
 
 // Re-export key types from core for consumer convenience
 export type {

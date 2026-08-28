@@ -40,6 +40,7 @@ export function FlowCanvas({ canvasRef, children, style, className }: FlowCanvas
   return (
     <div
       ref={canvasRef}
+      tabIndex={0}
       className={className}
       style={{
         position: 'relative',
@@ -49,6 +50,7 @@ export function FlowCanvas({ canvasRef, children, style, className }: FlowCanvas
         backgroundColor: V.bgCanvas,
         backgroundImage: `radial-gradient(circle, ${V.dotColor} 1px, transparent 1px)`,
         backgroundSize: `${V.dotSize} ${V.dotSize}`,
+        outline: 'none',
         ...style,
       }}
     >

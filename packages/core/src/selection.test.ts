@@ -1,12 +1,24 @@
 import { describe, expect, it, vi } from 'vitest'
 import mitt from 'mitt'
 import { createSelectionManager } from './selection'
-import type { FlowEvents, NodeEntry } from './types'
+import type { Edge, FlowEvents, NodeEntry } from './types'
 
 function makeNodeMap(ids: string[]): Map<string, NodeEntry> {
   const m = new Map<string, NodeEntry>()
   for (const id of ids) {
     m.set(id, { el: document.createElement('div'), position: { x: 0, y: 0 } })
+  }
+  return m
+}
+
+function makeEdgeMap(ids: string[]): Map<string, Edge> {
+  const m = new Map<string, Edge>()
+  for (const id of ids) {
+    m.set(id, {
+      id,
+      source: { nodeId: 'n1', handleId: 'h1', pt: { x: 0, y: 0 } },
+      target: { nodeId: 'n2', handleId: 'h2', pt: { x: 0, y: 0 } },
+    })
   }
   return m
 }
@@ -18,7 +30,7 @@ describe('createSelectionManager', () => {
     emitter.on('selectionChanged', spy)
 
     const nodes = makeNodeMap(['n1', 'n2'])
-    const sel = createSelectionManager(nodes, emitter)
+    const sel = createSelectionManager(nodes, makeEdgeMap([]), emitter)
 
     sel.select('n1')
 
@@ -28,13 +40,13 @@ describe('createSelectionManager', () => {
     expect(spy).toHaveBeenCalledWith({ selected: new Set(['n1']) })
   })
 
-  it('select is a no-op for unknown nodeId', () => {
+  it('select is a no-op for unknown id', () => {
     const emitter = mitt<FlowEvents>()
     const spy = vi.fn()
     emitter.on('selectionChanged', spy)
 
     const nodes = makeNodeMap(['n1'])
-    const sel = createSelectionManager(nodes, emitter)
+    const sel = createSelectionManager(nodes, makeEdgeMap([]), emitter)
 
     sel.select('ghost')
 
@@ -46,7 +58,7 @@ describe('createSelectionManager', () => {
     const emitter = mitt<FlowEvents>()
     const spy = vi.fn()
     const nodes = makeNodeMap(['n1'])
-    const sel = createSelectionManager(nodes, emitter)
+    const sel = createSelectionManager(nodes, makeEdgeMap([]), emitter)
 
     sel.select('n1')
     emitter.on('selectionChanged', spy)
@@ -55,39 +67,67 @@ describe('createSelectionManager', () => {
     expect(spy).not.toHaveBeenCalled()
   })
 
-  it('selectNodes adds multiple nodes in one emit', () => {
+  it('select accepts edge ids too (unified selection)', () => {
+    const emitter = mitt<FlowEvents>()
+    const nodes = makeNodeMap(['n1', 'n2'])
+    const edges = makeEdgeMap(['e1'])
+    const sel = createSelectionManager(nodes, edges, emitter)
+
+    sel.select('n1')
+    sel.select('e1')
+
+    expect(sel.has('n1')).toBe(true)
+    expect(sel.has('e1')).toBe(true)
+    expect(sel.size()).toBe(2)
+  })
+
+  it('selectMany adds multiple node/edge ids in one emit', () => {
     const emitter = mitt<FlowEvents>()
     const spy = vi.fn()
     emitter.on('selectionChanged', spy)
 
     const nodes = makeNodeMap(['n1', 'n2', 'n3'])
-    const sel = createSelectionManager(nodes, emitter)
+    const edges = makeEdgeMap(['e1'])
+    const sel = createSelectionManager(nodes, edges, emitter)
 
-    sel.selectNodes(['n1', 'n2'])
+    sel.selectMany(['n1', 'n2', 'e1'])
 
     expect(sel.has('n1')).toBe(true)
     expect(sel.has('n2')).toBe(true)
+    expect(sel.has('e1')).toBe(true)
     expect(spy).toHaveBeenCalledOnce()
   })
 
-  it('selectNodes only emits if anything actually changed', () => {
+  it('selectMany only emits if anything actually changed', () => {
     const emitter = mitt<FlowEvents>()
     const spy = vi.fn()
     const nodes = makeNodeMap(['n1'])
-    const sel = createSelectionManager(nodes, emitter)
+    const sel = createSelectionManager(nodes, makeEdgeMap([]), emitter)
     sel.select('n1')
 
     emitter.on('selectionChanged', spy)
-    sel.selectNodes(['n1']) // already selected
+    sel.selectMany(['n1']) // already selected
 
     expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('toggle selects an unselected id and deselects a selected one', () => {
+    const emitter = mitt<FlowEvents>()
+    const nodes = makeNodeMap(['n1'])
+    const sel = createSelectionManager(nodes, makeEdgeMap([]), emitter)
+
+    sel.toggle('n1')
+    expect(sel.has('n1')).toBe(true)
+
+    sel.toggle('n1')
+    expect(sel.has('n1')).toBe(false)
   })
 
   it('deselect removes a node and emits', () => {
     const emitter = mitt<FlowEvents>()
     const spy = vi.fn()
     const nodes = makeNodeMap(['n1'])
-    const sel = createSelectionManager(nodes, emitter)
+    const sel = createSelectionManager(nodes, makeEdgeMap([]), emitter)
 
     sel.select('n1')
     emitter.on('selectionChanged', spy)
@@ -101,7 +141,7 @@ describe('createSelectionManager', () => {
     const emitter = mitt<FlowEvents>()
     const spy = vi.fn()
     const nodes = makeNodeMap(['n1'])
-    const sel = createSelectionManager(nodes, emitter)
+    const sel = createSelectionManager(nodes, makeEdgeMap([]), emitter)
 
     emitter.on('selectionChanged', spy)
     sel.deselect('n1') // not selected
@@ -113,9 +153,9 @@ describe('createSelectionManager', () => {
     const emitter = mitt<FlowEvents>()
     const spy = vi.fn()
     const nodes = makeNodeMap(['n1', 'n2', 'n3'])
-    const sel = createSelectionManager(nodes, emitter)
+    const sel = createSelectionManager(nodes, makeEdgeMap([]), emitter)
 
-    sel.selectNodes(['n1', 'n2', 'n3'])
+    sel.selectMany(['n1', 'n2', 'n3'])
     emitter.on('selectionChanged', spy)
     sel.clearSelection()
 
@@ -127,7 +167,7 @@ describe('createSelectionManager', () => {
     const emitter = mitt<FlowEvents>()
     const spy = vi.fn()
     const nodes = makeNodeMap(['n1'])
-    const sel = createSelectionManager(nodes, emitter)
+    const sel = createSelectionManager(nodes, makeEdgeMap([]), emitter)
 
     emitter.on('selectionChanged', spy)
     sel.clearSelection()
@@ -138,7 +178,7 @@ describe('createSelectionManager', () => {
   it('getSelection returns an independent copy', () => {
     const emitter = mitt<FlowEvents>()
     const nodes = makeNodeMap(['n1'])
-    const sel = createSelectionManager(nodes, emitter)
+    const sel = createSelectionManager(nodes, makeEdgeMap([]), emitter)
     sel.select('n1')
 
     const copy = sel.getSelection()
@@ -151,9 +191,9 @@ describe('createSelectionManager', () => {
     const emitter = mitt<FlowEvents>()
     const spy = vi.fn()
     const nodes = makeNodeMap(['n1', 'n2'])
-    const sel = createSelectionManager(nodes, emitter)
+    const sel = createSelectionManager(nodes, makeEdgeMap([]), emitter)
 
-    sel.selectNodes(['n1', 'n2'])
+    sel.selectMany(['n1', 'n2'])
     emitter.on('selectionChanged', spy)
     sel.onNodeRemoved('n1')
 
@@ -166,7 +206,7 @@ describe('createSelectionManager', () => {
     const emitter = mitt<FlowEvents>()
     const spy = vi.fn()
     const nodes = makeNodeMap(['n1'])
-    const sel = createSelectionManager(nodes, emitter)
+    const sel = createSelectionManager(nodes, makeEdgeMap([]), emitter)
 
     emitter.on('selectionChanged', spy)
     sel.onNodeRemoved('n1') // not selected
@@ -174,16 +214,45 @@ describe('createSelectionManager', () => {
     expect(spy).not.toHaveBeenCalled()
   })
 
-  it('moveSelectionBy updates positions and calls recalcHandlesForNode', () => {
+  it('onEdgeRemoved removes the edge from selection and emits', () => {
+    const emitter = mitt<FlowEvents>()
+    const spy = vi.fn()
+    const nodes = makeNodeMap(['n1'])
+    const edges = makeEdgeMap(['e1', 'e2'])
+    const sel = createSelectionManager(nodes, edges, emitter)
+
+    sel.selectMany(['e1', 'e2'])
+    emitter.on('selectionChanged', spy)
+    sel.onEdgeRemoved('e1')
+
+    expect(sel.has('e1')).toBe(false)
+    expect(sel.has('e2')).toBe(true)
+    expect(spy).toHaveBeenCalledOnce()
+  })
+
+  it('onEdgeRemoved is a no-op for unselected edge', () => {
+    const emitter = mitt<FlowEvents>()
+    const spy = vi.fn()
+    const edges = makeEdgeMap(['e1'])
+    const sel = createSelectionManager(makeNodeMap([]), edges, emitter)
+
+    emitter.on('selectionChanged', spy)
+    sel.onEdgeRemoved('e1') // not selected
+
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('moveSelectionBy updates positions and calls recalcHandlesForNode, ignoring edge ids', () => {
     const emitter = mitt<FlowEvents>()
     const nodes = makeNodeMap(['n1', 'n2'])
-    const sel = createSelectionManager(nodes, emitter)
+    const edges = makeEdgeMap(['e1'])
+    const sel = createSelectionManager(nodes, edges, emitter)
 
     // Set initial positions
     nodes.get('n1')!.position = { x: 10, y: 20 }
     nodes.get('n2')!.position = { x: 100, y: 200 }
 
-    sel.selectNodes(['n1', 'n2'])
+    sel.selectMany(['n1', 'n2', 'e1'])
 
     const recalcSpy = vi.fn()
     sel.moveSelectionBy({ x: 5, y: 10 }, recalcSpy)
@@ -192,5 +261,6 @@ describe('createSelectionManager', () => {
     expect(nodes.get('n2')!.position).toEqual({ x: 105, y: 210 })
     expect(recalcSpy).toHaveBeenCalledWith('n1')
     expect(recalcSpy).toHaveBeenCalledWith('n2')
+    expect(recalcSpy).not.toHaveBeenCalledWith('e1')
   })
 })

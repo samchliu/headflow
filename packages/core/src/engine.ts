@@ -1,6 +1,7 @@
 import mitt from 'mitt'
 import { DEFAULT_TRANSFORM, getElementCanvasCenter, getNodeInitialPosition } from './transform'
 import { setupDrag } from './drag/index'
+import { setupKeyboard } from './keyboard'
 import { createSelectionManager } from './selection'
 import { createHistoryManager } from './history'
 import { setupPanZoom } from './panzoom'
@@ -33,7 +34,7 @@ export function createFlow(options: FlowOptions): FlowEngine {
 
   // ── Selection manager ──────────────────────────────────────────────────────
 
-  const selection = createSelectionManager(nodeMap, emitter)
+  const selection = createSelectionManager(nodeMap, edgeMap, emitter)
 
   // ── History manager ────────────────────────────────────────────────────────
 
@@ -150,8 +151,72 @@ export function createFlow(options: FlowOptions): FlowEngine {
     }
     for (const edgeId of toDelete) {
       edgeMap.delete(edgeId)
+      selection.onEdgeRemoved(edgeId)
       emitter.emit('edgeDeleted', { edgeId })
     }
+  }
+
+  function cloneEdge(edge: Edge): Edge {
+    return {
+      ...edge,
+      source: { ...edge.source, pt: { ...edge.source.pt } },
+      target: { ...edge.target, pt: { ...edge.target.pt } },
+    }
+  }
+
+  /**
+   * Shared deletion primitive for `removeNode`/`deleteSelection`: cascades
+   * edge deletion for the given node ids (plus any directly-specified edge
+   * ids), cleans up selection, and records ONE undo entry for the whole
+   * batch (mirrors `moveSelectionBy`'s batching — one user action, one undo).
+   * Emits `nodeRemoveRequested` per node so the consuming app can unmount it.
+   */
+  function deleteNodesAndEdges(nodeIds: string[], edgeIds: string[]): void {
+    const edgeIdsToRemove = new Set<string>(edgeIds)
+    for (const [edgeId, edge] of edgeMap) {
+      if (nodeIds.includes(edge.source.nodeId) || nodeIds.includes(edge.target.nodeId)) {
+        edgeIdsToRemove.add(edgeId)
+      }
+    }
+
+    const edgeSnapshots: Edge[] = []
+    for (const edgeId of edgeIdsToRemove) {
+      const edge = edgeMap.get(edgeId)
+      if (edge) edgeSnapshots.push(cloneEdge(edge))
+    }
+
+    const nodePositions = new Map<string, Point>()
+    for (const nodeId of nodeIds) {
+      const node = nodeMap.get(nodeId)
+      if (node) nodePositions.set(nodeId, { ...node.position })
+    }
+
+    function applyRemoval(): void {
+      for (const snap of edgeSnapshots) {
+        if (!edgeMap.has(snap.id)) continue
+        edgeMap.delete(snap.id)
+        selection.onEdgeRemoved(snap.id)
+        emitter.emit('edgeDeleted', { edgeId: snap.id })
+      }
+      for (const nodeId of nodeIds) {
+        selection.onNodeRemoved(nodeId)
+        emitter.emit('nodeRemoveRequested', { nodeId })
+      }
+    }
+
+    function applyRestore(): void {
+      for (const snap of edgeSnapshots) {
+        if (edgeMap.has(snap.id)) continue
+        edgeMap.set(snap.id, snap)
+        emitter.emit('edgeCreated', { edge: snap })
+      }
+      for (const [nodeId, position] of nodePositions) {
+        emitter.emit('nodeRestoreRequested', { nodeId, position })
+      }
+    }
+
+    history.record({ undo: applyRestore, redo: applyRemoval })
+    applyRemoval()
   }
 
   // ── MutationObserver — automatic Vanilla-mode discovery ───────────────────
@@ -244,6 +309,13 @@ export function createFlow(options: FlowOptions): FlowEngine {
     selection,
     options: { allowSelfLoop },
     history,
+  })
+
+  // ── Keyboard setup (Delete/Backspace removes the current selection) ──────
+
+  const cleanupKeyboard = setupKeyboard({
+    container,
+    deleteSelection: () => engine.deleteSelection(),
   })
 
   // ── Built-in pan/zoom (optional) ───────────────────────────────────────────
@@ -357,11 +429,7 @@ export function createFlow(options: FlowOptions): FlowEngine {
       if (!edge) return
 
       // Record for undo BEFORE deleting
-      const snapshot = {
-        ...edge,
-        source: { ...edge.source, pt: { ...edge.source.pt } },
-        target: { ...edge.target, pt: { ...edge.target.pt } },
-      }
+      const snapshot = cloneEdge(edge)
       history.record({
         undo() {
           if (edgeMap.has(snapshot.id)) return
@@ -371,12 +439,28 @@ export function createFlow(options: FlowOptions): FlowEngine {
         redo() {
           if (!edgeMap.has(snapshot.id)) return
           edgeMap.delete(snapshot.id)
+          selection.onEdgeRemoved(snapshot.id)
           emitter.emit('edgeDeleted', { edgeId: snapshot.id })
         },
       })
 
       edgeMap.delete(edgeId)
+      selection.onEdgeRemoved(edgeId)
       emitter.emit('edgeDeleted', { edgeId })
+    },
+
+    removeNode(nodeId) {
+      if (!nodeMap.has(nodeId)) return
+      deleteNodesAndEdges([nodeId], [])
+    },
+
+    deleteSelection() {
+      const selected = selection.getSelection()
+      if (selected.size === 0) return
+      const nodeIds = [...selected].filter((id) => nodeMap.has(id))
+      const edgeIds = [...selected].filter((id) => edgeMap.has(id))
+      if (nodeIds.length === 0 && edgeIds.length === 0) return
+      deleteNodesAndEdges(nodeIds, edgeIds)
     },
 
     getEdges() {
@@ -411,6 +495,7 @@ export function createFlow(options: FlowOptions): FlowEngine {
       const existing = Array.from(edgeMap.keys())
       for (const edgeId of existing) {
         edgeMap.delete(edgeId)
+        selection.onEdgeRemoved(edgeId)
         emitter.emit('edgeDeleted', { edgeId })
       }
 
@@ -432,6 +517,7 @@ export function createFlow(options: FlowOptions): FlowEngine {
     destroy() {
       observer.disconnect()
       cleanupDrag()
+      cleanupKeyboard()
       cleanupPanZoom?.()
       history.clear()
       emitter.all.clear()
@@ -448,7 +534,7 @@ export function createFlow(options: FlowOptions): FlowEngine {
     },
 
     selectNodes(nodeIds) {
-      selection.selectNodes(nodeIds)
+      selection.selectMany(nodeIds)
     },
 
     deselectNode(nodeId) {
