@@ -1,5 +1,12 @@
 # @headflow/solid
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies
+  - @headflow/core@0.2.0
+
 ## 0.1.2
 
 ### Patch Changes

@@ -1,5 +1,15 @@
 # @headflow/stories
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+  - @headflow/react-ui@0.3.0
+  - @headflow/renderer@0.2.0
+  - @headflow/react@0.3.0
+
 ## 0.0.3
 
 ### Patch Changes

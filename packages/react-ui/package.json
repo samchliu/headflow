@@ -1,6 +1,6 @@
 {
   "name": "@headflow/react-ui",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Pre-built React components for HeadFlow — styled, composable, themeable",
   "license": "MIT",
   "repository": {

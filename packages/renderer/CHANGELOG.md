@@ -1,5 +1,13 @@
 # @headflow/renderer
 
+## 0.2.0
+
+### Minor Changes
+
+- Add `EdgeLabels`, a render-prop component (`renderLabel(edge) => ReactNode`) that positions arbitrary custom content at each edge's midpoint. The label wrapper reuses the existing click-select mechanism (shift-toggle included) with zero changes to `@headflow/core` — label content is fully app-owned data.
+
+  Add `edgeMidpoint` to `@headflow/renderer`.
+
 ## 0.1.2
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@headflow/renderer",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Framework-agnostic renderer math utilities for HeadFlow",
   "keywords": [
     "headflow",
@@ -40,7 +40,7 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
-    "@headflow/core": "^0.1.2"
+    "@headflow/core": ">=0.1.2"
   },
   "devDependencies": {
     "@headflow/core": "workspace:*",

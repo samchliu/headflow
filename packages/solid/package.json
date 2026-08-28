@@ -1,6 +1,6 @@
 {
   "name": "@headflow/solid",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "SolidJS adapter for HeadFlow",
   "keywords": [
     "node-graph",
